@@ -1,0 +1,38 @@
+\begin{sphinxtheindex}
+\let\bigletter\sphinxstyleindexlettergroup
+\let\spxpagem \sphinxstyleindexpagemain
+\let\spxentry \sphinxstyleindexentry
+\let\spxextra \sphinxstyleindexextra
+
+  \bigletter E
+  \item \spxentry{estimate()}\spxextra{portchoice.models.PortLogit method}, \hyperpage{3}
+
+  \indexspace
+  \bigletter G
+  \item \spxentry{generate\_design()}\spxextra{portchoice.design.PortDesign method}, \hyperpage{2}
+  \item \spxentry{get\_choices()}\spxextra{portchoice.generate.PortGen method}, \hyperpage{3}
+
+  \indexspace
+  \bigletter M
+  \item \spxentry{module}
+    \subitem \spxentry{portchoice.design}, \hyperpage{1}
+    \subitem \spxentry{portchoice.generate}, \hyperpage{2}
+    \subitem \spxentry{portchoice.models}, \hyperpage{3}
+
+  \indexspace
+  \bigletter O
+  \item \spxentry{optimal\_portfolio()}\spxextra{portchoice.models.PortLogit method}, \hyperpage{4}
+
+  \indexspace
+  \bigletter P
+  \item \spxentry{portchoice.design}
+    \subitem \spxentry{module}, \hyperpage{1}
+  \item \spxentry{portchoice.generate}
+    \subitem \spxentry{module}, \hyperpage{2}
+  \item \spxentry{portchoice.models}
+    \subitem \spxentry{module}, \hyperpage{3}
+  \item \spxentry{PortDesign}\spxextra{class in portchoice.design}, \hyperpage{1}
+  \item \spxentry{PortGen}\spxextra{class in portchoice.generate}, \hyperpage{2}
+  \item \spxentry{PortLogit}\spxextra{class in portchoice.models}, \hyperpage{3}
+
+\end{sphinxtheindex}
