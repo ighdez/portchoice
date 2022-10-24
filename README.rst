@@ -7,6 +7,7 @@ Installation
 ============
 
 PortChoice can be installed as any Python package from Pypi::
+    
     pip install portchoice
 
 Usage
