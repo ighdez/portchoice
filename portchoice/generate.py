@@ -1,4 +1,5 @@
 """Portfolio choice data generation functions."""
+from itertools import combinations
 import numpy as np
 from pyDOE2 import fullfact
 
@@ -24,15 +25,36 @@ class PortGen:
     B : float, optional
         Available resources. Must be different from None if `C` is defined, 
         by default None
+    mutually_exclusive : list, optional
+        List of mutually-exclusive alternatives. Each element of the list is
+        a numpy array of two elements that detail the two mutually-exclusive
+        alternatives.
     """
     # Init function
-    def __init__(self, V: np.ndarray, C: np.ndarray = None, delta_0: float = None, B: float = None):
+    def __init__(self, V: np.ndarray, C: np.ndarray = None, delta_0: float = None, B: float = None, mutually_exclusive: list = None):
 
         # Number of individual choices
         J = V.shape[1]
 
         # Create matrix of combinations
         self.combinations = fullfact(np.repeat(2,J))
+
+        # If mutually-exclusive alternatives are defined, then set utility to -inf
+        if mutually_exclusive is not None:
+            
+            idx = []
+
+            # Loop across combinations of mutually-exclusive alts
+            for e in mutually_exclusive:
+
+                # Find indexes
+                e_j = e - 1
+                idx.append(np.where((self.combinations[:,e_j[0]]==1) & (self.combinations[:,e_j[1]]==1))[0])
+
+            # Remove mutually-exclusive alternatives
+            idx = np.unique(np.concatenate(idx))
+
+            self.combinations = np.delete(self.combinations,idx,axis=0)
 
         # Create utility of each feasible combination
         self.Vp = V @ self.combinations.T
@@ -89,7 +111,7 @@ class PortGen:
         p = ev/sev
 
         # Compute log-likelihood
-        ll = y_p * np.log(p)
+        ll = np.log(p**y_p)
 
         # Return choices and log-likelihood
         return y, ll

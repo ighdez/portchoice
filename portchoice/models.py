@@ -32,9 +32,13 @@ class PortLogit:
         respondent, by default None
     B : float, optional
         Resource constraint, by default None
+    mutually_exclusive : list, optional
+        List of mutually-exclusive alternatives. Each element of the list is
+        a numpy array of two elements that detail the two mutually-exclusive
+        alternatives.
     """
     # Init function
-    def __init__(self,Y: pd.DataFrame, X: pd.DataFrame = None, Z: pd.DataFrame = None, C: pd.DataFrame = None, B: float = None):
+    def __init__(self,Y: pd.DataFrame, X: pd.DataFrame = None, Z: pd.DataFrame = None, C: pd.DataFrame = None, B: float = None, mutually_exclusive: list = None):
 
         # Array of choices
         self.Y = Y.to_numpy()
@@ -45,6 +49,25 @@ class PortLogit:
 
         # Calculate combinations array
         self.combinations = fullfact(np.repeat(2,self.J))
+
+        # If mutually-exclusive alternatives are defined, then set utility to -inf
+        self.mutually_exclusive = mutually_exclusive
+        
+        if mutually_exclusive is not None:
+            
+            idx = []
+
+            # Loop across combinations of mutually-exclusive alts
+            for e in mutually_exclusive:
+
+                # Find indexes
+                e_j = e - 1
+                idx.append(np.where((self.combinations[:,e_j[0]]==1) & (self.combinations[:,e_j[1]]==1))[0])
+
+            # Remove mutually-exclusive alternatives
+            idx = np.unique(np.concatenate(idx))
+
+            self.combinations = np.delete(self.combinations,idx,axis=0)
 
         # Define array for alternative-specific covariates and shape K (if present)
         if X is not None:
@@ -203,7 +226,7 @@ class PortLogit:
             if B is not None:
                 Feasible = Totalcosts <= B
             else:
-                Feasible = np.ones((1,self.combinations.shape[0]))
+                Feasible = np.ones((1,self.combinations.shape[0])).astype(bool)
         else:
             Totalcosts = 0.
             Feasible = np.ones((1,self.combinations.shape[0]))
@@ -262,6 +285,7 @@ class PortLogit:
 
         # Get choice probability
         probs = prob_1/prob_2
+        probs[~np.isfinite(probs)] = 1
 
         # Log-likelihood is the negative of the sum of LN of choice probabilities
         ll = -np.sum(np.log(probs))
