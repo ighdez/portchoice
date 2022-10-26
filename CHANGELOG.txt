@@ -1,0 +1,5 @@
+0.1.2
+Added non-mutually exclusive alternatives
+
+0.1.1
+Initial release
