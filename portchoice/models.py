@@ -235,7 +235,7 @@ class PortLogit:
         e = np.random.gumbel(size=(sims,self.combinations.shape[0]))
 
         # Get utility of each portfolio
-        Vp = PortLogit._utility(self.coef,self.J,self.K,None,C,B,X,Z,self.combinations,Totalcosts,Feasible,self.asc,self.delta_0,self.beta_j,return_chosen=False)
+        Vp = _utility(self.coef,self.J,self.K,None,C,B,X,Z,self.combinations,Totalcosts,Feasible,self.asc,self.delta_0,self.beta_j,return_chosen=False)
 
         # Compute utility for each simulation and average
         Up_s = Vp + e
@@ -523,7 +523,7 @@ class LCPortLogit:
         e = np.random.gumbel(size=(sims,self.combinations.shape[0]))
 
         # Get utility of each portfolio
-        Vp = PortLogit._utility(self.coef,self.J,self.K,None,C,B,X,Z,self.combinations,Totalcosts,Feasible,self.asc,self.delta_0,self.beta_j,return_chosen=False)
+        Vp = _utility(self.coef,self.J,self.K,None,C,B,X,Z,self.combinations,Totalcosts,Feasible,self.asc,self.delta_0,self.beta_j,return_chosen=False)
 
         # Compute utility for each simulation and average
         Up_s = Vp + e
