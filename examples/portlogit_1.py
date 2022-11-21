@@ -23,14 +23,14 @@ obj = PortLogit(Y,X,Z,C,B)
 # Estimate
 asc = np.zeros(4).astype(int)
 startv = np.zeros(asc.sum() + K + 0)
-fval, coef, se, hessian, diff_time = obj.estimate(startv,delta_0=0.,asc=asc,tol=1e-6,verbose=-1)
+fval, coef, se, hessian, diff_time = obj.estimate(startv,delta_0=0.,asc=asc,tol=1e-6,verbose=-1,method='l-bfgs-b')
 
 # Construct results matrix
 results = pd.DataFrame(np.c_[coef,se,coef/se],columns=['Estimate','Std.Err.','T-stat'],index=Xvars)
 print('\nEstimation results\nLog-likelihood: ' + str(round(-fval,2)) + '\n')
 print(results)
 print('\n')
-# exit()
+
 # Get the optimal portfolio
 portfolio = obj.optimal_portfolio(X = X.mean(),Z = None, C = None, B = None, sims=10000)
 print('Optimal portfolio:\n')

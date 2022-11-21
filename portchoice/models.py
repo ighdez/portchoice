@@ -9,6 +9,7 @@ import pandas as pd
 from scipy.optimize import minimize
 from numdifftools import Hessian
 from pyDOE2 import fullfact
+from portchoice.utils import _bfgsmin
 import time
 
 # Portfolio Logit model
@@ -101,7 +102,7 @@ class PortLogit:
             self.Feasible = np.ones(self.combinations.shape)  
 
     # Estimate portfolio logit model
-    def estimate(self, startv: np.ndarray, asc: np.ndarray, beta_j: np.ndarray = None, delta_0: float = None, hess: bool = True, tol: float = 1e-6, verbose: bool = True):
+    def estimate(self, startv: np.ndarray, asc: np.ndarray, beta_j: np.ndarray = None, delta_0: float = None, method: str = 'bfgsmin', hess: bool = True, tol: float = 1e-6, verbose: bool = True):
         """Estimate portfolio logit model
 
         It starts the optimisation routine of the portfolio logit model. 
@@ -129,6 +130,10 @@ class PortLogit:
             If None and `C` exists, then the parameter of the marginal utility 
             of non-spent resources is estimated. If `delta_0` is a float, then 
             the parameter is fixed to the value of `delta_0`, by default None
+        method : str, optional
+            The optimisation method for the MLE routine. Available options are 
+            either the built-in BFGS minimiser ('bfgsmin') or a method available 
+            for `scipy.minimize.optimize`, by detault 'bfgsmin'
         hess : bool, optional
             Whether the finite-difference hessian is estimated at the end of the 
             estimation routine, by default True
@@ -160,9 +165,13 @@ class PortLogit:
         # Set arguments for the estimation routine
         args = (self.J,self.K,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.Totalcosts,self.Feasible,self.asc,self.delta_0,self.beta_j)
             
-        # Minimise the LL function using BFGSmin
+        # Minimise the LL function
         time0 = time.time()
-        res = minimize(PortLogit._llf,startv,args=args,method='L-BFGS-B',options={'gtol': tol, 'iprint': verbose})
+
+        if method == 'bfgsmin':
+            res = _bfgsmin(PortLogit._llf,startv,tol=tol,verbose=verbose,difftype='forward',args=args)
+        else:
+            res = minimize(PortLogit._llf,startv,args=args,method='L-BFGS-B',options={'gtol': tol, 'iprint': verbose})
         
         # Get/compute outputs
         ll = res['fun']
@@ -175,8 +184,12 @@ class PortLogit:
             hessian = Hessian(PortLogit._llf)(self.coef,self.J,self.K,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.Totalcosts,self.Feasible,asc,delta_0,beta_j)
             se = np.sqrt(np.diag(np.linalg.inv(hessian))).flatten()
         else:
-            hessian = 0.
-            se = 0.
+            if method == 'bfgsmin':
+                hessian = res['hessian']
+                se = np.sqrt(np.diag(np.linalg.inv(hessian))).flatten()
+            else:
+                hessian = 0.
+                se = 0.
 
         time1 = time.time()
         diff_time = time1-time0
