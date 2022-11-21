@@ -616,6 +616,56 @@ class LCPortLogit:
         # Return log-likelihood
         return ll
 
+# Portfolio Kuhn-Tucker (MDCEV) model
+class PortKT:
+    
+    # Init function
+    def __init__(self,Y: pd.DataFrame,  C: pd.DataFrame, B: float, X: pd.DataFrame = None, Z: pd.DataFrame = None):
+        
+        # Array of choices
+        self.Y = Y.to_numpy().astype(bool)
+        
+        # Get scalars N and J
+        self.N = self.Y.shape[0]
+        self.J = self.Y.shape[1]
+
+        # Define array or budget
+        self.B = B
+
+        # Define arrays of costs and totalcosts
+        self.C = C.to_numpy()
+        self.Totalcosts = (self.C * self.Y).sum(axis=1)
+
+        # Define arrays of cases
+        Case1 = (self.Totalcosts < self.B).astype(bool)
+        Case2 = ~Case1
+
+        # Define variable of remaining resources and log(C)
+        self.Remaining = self.B - self.Totalcosts
+        self.log_Price = np.log(self.C)
+
+        # Define No. of non-selected alternatives
+        N_nonchosen = self.J - self.Y.sum(axis=1)
+
+        # Define array for alternative-specific covariates and shape K (if present)
+        if X is not None:
+            self.K = int(X.shape[1]/self.J)
+            self.X = X.to_numpy().reshape((self.N,self.J,self.K))
+        else:
+            self.K = 0
+            self.X = None
+
+        # Define array of individual-specific covariates (if present)
+        if Z is not None:
+            self.Z = Z.to_numpy()
+        else:
+            self.Z = None
+
+    # Estimate function
+    def estimate():
+        pass
+
+
 # Utility functions method
 def _utility(pars,J,K,Y,C,B,X,Z,combinations,Totalcosts,Feasible,asc,delta_0,beta_j,return_chosen=True):
 
