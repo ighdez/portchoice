@@ -85,7 +85,10 @@ class PortLogit:
             self.Z = None
 
         # Define array or budget scalar and feasible combinations (if present)
-        self.B = B
+        if isinstance(B,float):
+            self.B = B
+        else:
+            self.B = B.to_numpy()
 
         # Define arrays of costs and totalcosts (if present)
         if C is not None:
@@ -93,7 +96,7 @@ class PortLogit:
             self.Totalcosts = self.C @ self.combinations.T
             
             if B is not None:
-                self.Feasible = (self.Totalcosts <= self.B)
+                self.Feasible = (self.Totalcosts.T <= self.B).T
             else:
                 self.Feasible = np.ones(self.Totalcosts.shape)                
         else:
@@ -391,7 +394,10 @@ class LCPortLogit:
             self.Z = None
 
         # Define array or budget scalar and feasible combinations (if present)
-        self.B = B
+        if isinstance(B,float):
+            self.B = B
+        else:
+            self.B = B.to_numpy()
 
         # Define arrays of costs and totalcosts (if present)
         if C is not None:
@@ -399,7 +405,7 @@ class LCPortLogit:
             self.Totalcosts = self.C @ self.combinations.T
             
             if B is not None:
-                self.Feasible = (self.Totalcosts <= self.B)
+                self.Feasible = (self.Totalcosts.T <= self.B).T
             else:
                 self.Feasible = np.ones(self.Totalcosts.shape)                
         else:
@@ -1009,7 +1015,7 @@ def _utility(pars,J,K,Y,C,B,X,Z,combinations,Totalcosts,Feasible,asc,delta_0,bet
                 Vp_chosen = np.sum(Vj*Y,axis=1)
 
             if B is not None:
-                Vp += delta_0*(B-Totalcosts)
+                Vp += delta_0*(B-Totalcosts.T).T
                 Vp[~Feasible] = -np.inf
                 if return_chosen:
                     Vp_chosen += delta_0*(B-np.sum(C*Y,axis=1))

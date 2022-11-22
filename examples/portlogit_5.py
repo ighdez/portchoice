@@ -15,7 +15,7 @@ K = 3
 Y = data[['Choice_' + str(i+1) for i in range(J)]]
 C = data[['Cost_' + str(i+1) for i in range(J)]]
 X = data[[x + '_' + str(j+1) for j in range(J) for x in Xvars]]
-B = data['Budget'].iloc[0]
+B = data['Budget']
 
 # Create model
 obj = PortLogit(Y,X,None,C,B)
