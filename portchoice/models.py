@@ -879,24 +879,24 @@ class PortKT:
             par_count += 1
 
         # Initialise log-likelihood
-        ll_n = np.empty(N)
+        ll_n = np.zeros(N)
 
         # Calculate price-normalized marginal utilities
-        V0 = (alpha_0-1)*np.log((Remaining/gamma_0)+1) + delta_0
+        V0 = delta_0 + (alpha_0-1)*np.log((Remaining/gamma_0)+1)
         Vd = delta_j + Xb + Zt - log_Price
 
-        # Case 1
+        # Compute log-likelihood of case 1
         if np.any(Case1):
-            Wnk0 = np.exp(-((Vd[Case1,]-np.tile(V0[Case1],(J,1)).T)/sigma))
+            Wnk0 = np.exp(-((Vd[Case1,:]-V0[Case1,np.newaxis])/sigma))
 
-            sumW0k = np.sum(Wnk0*Y[Case1,],axis=1)
+            sumW0k = np.sum(Wnk0*Y[Case1,:],axis=1)
 
-            elemS = np.sum(1-Y[Case1,],axis=1)
+            elemS = np.sum(1-Y[Case1,:],axis=1)
             cases = np.unique(elemS)
 
-            NoChoice_logical_Case1 = ((1-Y[Case1,])==1)
+            NoChoice_logical_Case1 = ~Y[Case1,:]
 
-            for j in range(0,len(cases)):
+            for j in range(len(cases)):
 
                 if cases[j] == 0:
                     elemS0=(elemS==0)
@@ -911,8 +911,8 @@ class PortKT:
 
                     Case1j_long = Case1 * (N_nonchosen==cases[j])
 
-                    NoChoice_logical_1j = NoChoice_logical_Case1[Case1j,]
-                    Wnk0_1j = Wnk0[Case1j,]
+                    NoChoice_logical_1j = NoChoice_logical_Case1[Case1j,:]
+                    Wnk0_1j = Wnk0[Case1j,:]
 
                     Wnk0_1j_select = Wnk0_1j[NoChoice_logical_1j]
                     Wnk0_1j_select.shape = (np.sum(Case1j),cases[j])
@@ -920,7 +920,7 @@ class PortKT:
                     setS = fullfact(np.repeat(2,cases[j]))
                     elem_setS = np.sum(setS,axis=1)
 
-                    setS_Wnk0 = setS.dot(Wnk0_1j_select.T)
+                    setS_Wnk0 = setS @ Wnk0_1j_select.T
 
                     term1 = (-1)**elem_setS
                     term2 = (1 + (sumW0k[elemSj] + setS_Wnk0)).T**-1
@@ -932,25 +932,25 @@ class PortKT:
             LS_select=(Vd[Case2,]*(Y[Case2,]))/sigma
             LS_select=sigma*np.log(np.sum(np.exp(-LS_select),axis=1)-np.sum(1-Y[Case2,],axis=1))
 
-            W0j = np.exp(-((Vd[Case2,]+np.tile(LS_select,(J,1)).T)/sigma))
+            W0j = np.exp(-((Vd[Case2,:] + LS_select[:,np.newaxis])/sigma))
             W0LS = np.exp(-((V0[Case2]+LS_select)/sigma))
 
-            elemS = np.sum(1-Y[Case2,],axis=1) + 1
+            elemS = np.sum(1-Y[Case2,:],axis=1) + 1
             cases = np.unique(elemS)
 
-            NoChoice_logical_Case2 = ((1-Y[Case2,]) == 1)
+            NoChoice_logical_Case2 = ~Y[Case2,:]
 
-            for j in range(0,len(cases)):
+            for j in range(len(cases)):
 
                 Case2j = (elemS==cases[j])
                 Case2j_long = Case2 * (N_nonchosen==(cases[j]-1))
-                NoChoice_logical_2j = NoChoice_logical_Case2[Case2j,]
+                NoChoice_logical_2j = NoChoice_logical_Case2[Case2j,:]
 
-                NoChoice_logical_all_2j = np.hstack((NoChoice_logical_2j,np.ones((sum(Case2j),1))))==1
+                NoChoice_logical_all_2j = np.c_[NoChoice_logical_2j,np.ones(sum(Case2j))].astype(bool)
 
-                W0j_2j = W0j[Case2j,].T
-                W0LS_2j = W0LS[Case2j].T
-                Wall_2j = np.vstack((W0j_2j,W0LS_2j)).T
+                W0j_2j = W0j[Case2j,:]
+                W0LS_2j = W0LS[Case2j]
+                Wall_2j = np.c_[W0j_2j,W0LS_2j]
 
                 W0j_2j_select = Wall_2j[NoChoice_logical_all_2j]
                 W0j_2j_select.shape = (np.sum(Case2j),cases[j])
@@ -958,7 +958,7 @@ class PortKT:
                 setS = fullfact(np.repeat(2,cases[j]))
                 elem_setS = np.sum(setS,axis=1)
 
-                setS_W0j = setS.dot(W0j_2j_select.T)
+                setS_W0j = setS @ W0j_2j_select.T
 
                 term1 = (-1)**elem_setS
                 term2 = (1 + setS_W0j.T)**-1

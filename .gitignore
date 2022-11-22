@@ -2,3 +2,6 @@ __pycache__/
 .DS_Store
 dist/
 docs/
+data/merged_corona_data_analysis_0505.csv
+.gitignore
+examples/portkt_2.py
