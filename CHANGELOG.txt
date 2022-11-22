@@ -1,3 +1,6 @@
+0.1.6
+added Portfolio KT model
+
 0.1.5
 added build-in BFGS minimizer
 
