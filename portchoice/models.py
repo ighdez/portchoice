@@ -151,9 +151,15 @@ class PortLogit:
         coef : numpy.ndarray
             Estimated parameters at the optimum
         se : numpy.ndarray
-            Standard errors of `coef`. If `hess = False` then `se = 0.`
+            Standard errors of `coef`. If `hess = False` and `method` is 
+            not 'bfgsmin' then `se = 0.`, else if method is 'bfgsmin', 
+            it returns the standard errors computed from the Hessian 
+            approximation.
         hessian : numpy.ndarray
-            Finite-difference Hessian. If `hess = False` then `hessian = 0.`
+            Finite-difference Hessian. If `hess = False` and `method` is 
+            not 'bfgsmin' then `hessian = 0.`, else if method is 'bfgsmin', 
+            it returns the Hessian approximation.
+            approximation
         diff_time : float
             Estimation time in seconds.
         """
@@ -171,7 +177,7 @@ class PortLogit:
         if method == 'bfgsmin':
             res = _bfgsmin(PortLogit._llf,startv,tol=tol,verbose=verbose,difftype='forward',args=args)
         else:
-            res = minimize(PortLogit._llf,startv,args=args,method='L-BFGS-B',options={'gtol': tol, 'iprint': verbose})
+            res = minimize(PortLogit._llf,startv,args=args,method=method,options={'gtol': tol, 'iprint': verbose})
         
         # Get/compute outputs
         ll = res['fun']
@@ -463,7 +469,7 @@ class LCPortLogit:
             
         # Minimise the LL function using BFGSmin
         time0 = time.time()
-        res = minimize(LCPortLogit._llf,startv,args=args,method='L-BFGS-B',options={'gtol': tol, 'iprint': verbose})
+        res = minimize(LCPortLogit._llf,startv,args=args,method=method,options={'gtol': tol, 'iprint': verbose})
         
         # Get/compute outputs
         ll = res['fun']
@@ -618,7 +624,27 @@ class LCPortLogit:
 
 # Portfolio Kuhn-Tucker (MDCEV) model
 class PortKT:
-    
+    """Portfolio Kuhn-Tucker (MDCEV) model class.
+
+    It contains the routines to prepare the data and estimate a portfolio 
+    Kuhn-Tucker model, also known as the MDCEV-type model. Support for 
+    optimal portfolio is still on the works.
+
+    Parameters
+    ----------
+    Y : pd.DataFrame
+        A data frame with choices of each alternative for each respondent.
+    C : pd.DataFrame
+        A data frame with the costs of each individual alternative for each 
+        respondent
+    B : float
+        Resource constraint
+    X : pd.DataFrame, optional
+        A data frame with the alternative-specific variables 
+        (e.g., attributes), by default None
+    Z : pd.DataFrame, optional
+        A data frame with the individual-specific variables, by default None
+    """
     # Init function
     def __init__(self,Y: pd.DataFrame,  C: pd.DataFrame, B: float, X: pd.DataFrame = None, Z: pd.DataFrame = None):
         
@@ -637,15 +663,15 @@ class PortKT:
         self.Totalcosts = (self.C * self.Y).sum(axis=1)
 
         # Define arrays of cases
-        Case1 = (self.Totalcosts < self.B).astype(bool)
-        Case2 = ~Case1
+        self.Case1 = (self.Totalcosts < self.B).astype(bool)
+        self.Case2 = ~self.Case1
 
         # Define variable of remaining resources and log(C)
         self.Remaining = self.B - self.Totalcosts
         self.log_Price = np.log(self.C)
 
         # Define No. of non-selected alternatives
-        N_nonchosen = self.J - self.Y.sum(axis=1)
+        self.N_nonchosen = self.J - self.Y.sum(axis=1)
 
         # Define array for alternative-specific covariates and shape K (if present)
         if X is not None:
@@ -662,9 +688,272 @@ class PortKT:
             self.Z = None
 
     # Estimate function
-    def estimate():
+    def estimate(self, startv: np.ndarray, asc: np.ndarray, beta_j: np.ndarray = None, delta_0: float = None, sigma: float = None, alpha_0: float = None, gamma_0: float = None, method: str = 'bfgsmin', hess: bool = True, tol: float = 1e-6, verbose: bool = True):
+        """Estimate portfolio KT model
+
+        It starts the optimisation routine of the portfolio KT model. 
+        The user can specify the presence of alternative-specific constants 
+        (`asc`), separate parameters for the alternative-specific variables 
+        (`beta_j`), the presence of a parameter that captures the marginal 
+        utility of non-spent resources (`delta_0`), the scale (`sigma`), 
+        the satiation (`alpha_0`) and translation (`delta_0`) parameters.
+
+        Parameters
+        ----------
+        startv : np.ndarray
+            Starting values for the maximum-likelihood estimation routine.
+        asc : np.ndarray
+            An array of length `n_alternatives`, in which each element can
+            be either equal to one if the ASC of the corresponding alternative 
+            is estimated, and zero otherwise.
+        beta_j : np.ndarray, optional
+            An array of dimension `n_alternatives*n_attributes`, in which each 
+            element can be either equal to one if the corresponding 
+            alternative-specific parameter is estimated, and zero otherwise. 
+            If `beta_j = None` and `X` exists then single attribute-specific 
+            parameters (i.e., equal across alternatives) are estimated 
+            , by default None
+        delta_0 : float, optional
+            If `delta_0` is a float, then the parameter is fixed to the value 
+            of `delta_0`, by default None
+        sigma : float, optional
+            If `sigma` is a float, then the parameter is fixed to the value 
+            of `sigma`, otherwise is estimated as `exp(sigma)`, by default None
+        alpha_0 : float, optional
+            If `alpha_0` is a float, then the parameter is fixed to the value 
+            of `alpha_0`, otherwise is estimated as `1/(1+exp(-alpha_0))`, 
+            by default None
+        gamma_0 : float, optional
+            If `gamma_0` is a float, then the parameter is fixed to the value 
+            of `gamma_0`, otherwise is estimated as `exp(gamma_0)`, by default None
+        method : str, optional
+            The optimisation method for the MLE routine. Available options are 
+            either the built-in BFGS minimiser ('bfgsmin') or a method available 
+            for `scipy.minimize.optimize`, by detault 'bfgsmin'
+        hess : bool, optional
+            Whether the finite-difference hessian is estimated at the end of the 
+            estimation routine, by default True
+        tol : float, optional
+            Tolerance of the gradient in the estimation routine, by default 1e-6
+        verbose : bool, optional
+            Whether the estimation routine returns information at each iteration. 
+            See the documentation of `scipy.optimize.minimize` with method 
+            `l-bfgs-b` for more information, by default True
+
+        Returns
+        -------
+        ll : float
+            Log-likelihood function at the optimum
+        coef : numpy.ndarray
+            Estimated parameters at the optimum
+        se : numpy.ndarray
+            Standard errors of `coef`. If `hess = False` and `method` is 
+            not 'bfgsmin' then `se = 0.`, else if method is 'bfgsmin', 
+            it returns the standard errors computed from the Hessian 
+            approximation.
+        hessian : numpy.ndarray
+            Finite-difference Hessian. If `hess = False` and `method` is 
+            not 'bfgsmin' then `hessian = 0.`, else if method is 'bfgsmin', 
+            it returns the Hessian approximation.
+            approximation
+        diff_time : float
+            Estimation time in seconds.
+        """
+        # Retrieve parameter specifications and store in object
+        self.asc = asc
+        self.beta_j = beta_j
+        self.delta_0 = delta_0
+        self.sigma = sigma
+        self.alpha_0 = alpha_0
+        self.gamma_0 = gamma_0
+
+        # Set arguments for the estimation routine
+        args = (self.N,self.J,self.K,self.Y,self.log_Price,self.Remaining,self.N_nonchosen,self.Case1,self.Case2,self.X,self.Z,self.asc,self.beta_j,self.delta_0,self.sigma,self.alpha_0,self.gamma_0)
+
+        # Minimise the LL function
+        time0 = time.time()
+
+        if method == 'bfgsmin':
+            res = _bfgsmin(PortKT._llf,startv,tol=tol,verbose=verbose,difftype='forward',args=args)
+        else:
+            res = minimize(PortKT._llf,startv,args=args,method=method,options={'gtol': tol, 'iprint': verbose})
+        
+        # Get/compute outputs
+        ll = res['fun']
+        self.coef = res['x'].flatten()
+
+        if verbose > -1:
+            print('Computing Hessian')
+
+        if hess:
+            hessian = Hessian(PortKT._llf)(self.coef,self.N,self.J,self.K,self.Y,self.log_Price,self.Remaining,self.N_nonchosen,self.Case1,self.Case2,self.X,self.Z,self.asc,self.beta_j,self.delta_0,self.sigma,self.alpha_0,self.gamma_0)
+            se = np.sqrt(np.diag(np.linalg.inv(hessian))).flatten()
+        else:
+            if method == 'bfgsmin':
+                hessian = res['hessian']
+                se = np.sqrt(np.diag(np.linalg.inv(hessian))).flatten()
+            else:
+                hessian = 0.
+                se = 0.
+
+        time1 = time.time()
+        diff_time = time1-time0
+
+        # Return results
+        return ll, self.coef, se, hessian, diff_time
+
+    def optimal_portfolio(self):
         pass
 
+    # Log-likelihood function
+    @staticmethod
+    def _llf(pars,N,J,K,Y,log_Price,Remaining,N_nonchosen,Case1,Case2,X,Z,asc,beta_j,delta_0,sigma,alpha_0,gamma_0):
+        
+        # Separate parameters of pars
+        par_count = 0
+
+        # Alternative-specific constants
+        delta_j = np.zeros(J)
+        for j in range(J):
+            if asc[j] == 1:
+                delta_j[j] = pars[par_count]
+                par_count += 1
+
+        # Attribute-specific parameters
+        if X is not None:
+            if beta_j is not None:
+                beta = np.zeros(beta_j.shape)
+                for j in range(J):
+                    for k in range(K):
+                        if beta_j[j,k] == 1:
+                            beta[j,k] = pars[par_count]
+                            par_count += 1
+                Xb = np.sum(X * beta,axis=2)
+            else:
+                beta = pars[par_count:(K+par_count)]                
+                Xb = X @ beta
+                par_count += K
+        else:
+            beta= 0.
+            Xb = 0.
+
+        # Individual-specific parameters
+        if Z is not None:
+            theta = np.vstack([np.zeros(Z.shape[1]), pars[par_count:].reshape(((J-1),Z.shape[1]))])
+            Zt = Z @ theta.T
+        else:
+            theta = 0.
+            Zt = 0.
+
+        # Cost parameter
+        if delta_0 is None:
+            delta_0 = pars[par_count]
+            par_count += 1
+
+        # Scale parameter
+        if sigma is None:
+            sigma = np.exp(pars[par_count])
+            par_count += 1
+
+        # Satiation parameter
+        if alpha_0 is None:
+            alpha_0 = 1/(1+np.exp(-pars[par_count]))
+            par_count += 1
+
+        # Satiation parameter
+        if gamma_0 is None:
+            gamma_0 = np.exp(pars[par_count])
+            par_count += 1
+
+        # Initialise log-likelihood
+        ll_n = np.empty(N)
+
+        # Calculate price-normalized marginal utilities
+        V0 = (alpha_0-1)*np.log((Remaining/gamma_0)+1) + delta_0
+        Vd = delta_j + Xb + Zt - log_Price
+
+        # Case 1
+        if np.any(Case1):
+            Wnk0 = np.exp(-((Vd[Case1,]-np.tile(V0[Case1],(J,1)).T)/sigma))
+
+            sumW0k = np.sum(Wnk0*Y[Case1,],axis=1)
+
+            elemS = np.sum(1-Y[Case1,],axis=1)
+            cases = np.unique(elemS)
+
+            NoChoice_logical_Case1 = ((1-Y[Case1,])==1)
+
+            for j in range(0,len(cases)):
+
+                if cases[j] == 0:
+                    elemS0=(elemS==0)
+                    Case10 = (Case1*(N_nonchosen==0))
+
+                    ll_n[Case10] = -np.log((1+sumW0k[elemS0]))
+
+                else:
+
+                    elemSj = (elemS==cases[j])
+                    Case1j = elemSj
+
+                    Case1j_long = Case1 * (N_nonchosen==cases[j])
+
+                    NoChoice_logical_1j = NoChoice_logical_Case1[Case1j,]
+                    Wnk0_1j = Wnk0[Case1j,]
+
+                    Wnk0_1j_select = Wnk0_1j[NoChoice_logical_1j]
+                    Wnk0_1j_select.shape = (np.sum(Case1j),cases[j])
+
+                    setS = fullfact(np.repeat(2,cases[j]))
+                    elem_setS = np.sum(setS,axis=1)
+
+                    setS_Wnk0 = setS.dot(Wnk0_1j_select.T)
+
+                    term1 = (-1)**elem_setS
+                    term2 = (1 + (sumW0k[elemSj] + setS_Wnk0)).T**-1
+
+                    ll_n[Case1j_long] = np.log(np.sum(term1*term2,axis=1))
+
+        # Case 2
+        if np.any(Case2):
+            LS_select=(Vd[Case2,]*(Y[Case2,]))/sigma
+            LS_select=sigma*np.log(np.sum(np.exp(-LS_select),axis=1)-np.sum(1-Y[Case2,],axis=1))
+
+            W0j = np.exp(-((Vd[Case2,]+np.tile(LS_select,(J,1)).T)/sigma))
+            W0LS = np.exp(-((V0[Case2]+LS_select)/sigma))
+
+            elemS = np.sum(1-Y[Case2,],axis=1) + 1
+            cases = np.unique(elemS)
+
+            NoChoice_logical_Case2 = ((1-Y[Case2,]) == 1)
+
+            for j in range(0,len(cases)):
+
+                Case2j = (elemS==cases[j])
+                Case2j_long = Case2 * (N_nonchosen==(cases[j]-1))
+                NoChoice_logical_2j = NoChoice_logical_Case2[Case2j,]
+
+                NoChoice_logical_all_2j = np.hstack((NoChoice_logical_2j,np.ones((sum(Case2j),1))))==1
+
+                W0j_2j = W0j[Case2j,].T
+                W0LS_2j = W0LS[Case2j].T
+                Wall_2j = np.vstack((W0j_2j,W0LS_2j)).T
+
+                W0j_2j_select = Wall_2j[NoChoice_logical_all_2j]
+                W0j_2j_select.shape = (np.sum(Case2j),cases[j])
+
+                setS = fullfact(np.repeat(2,cases[j]))
+                elem_setS = np.sum(setS,axis=1)
+
+                setS_W0j = setS.dot(W0j_2j_select.T)
+
+                term1 = (-1)**elem_setS
+                term2 = (1 + setS_W0j.T)**-1
+
+                ll_n[Case2j_long] = np.log(np.sum(term1*term2,axis=1))
+
+        # Return ll
+        return -sum(ll_n)
 
 # Utility functions method
 def _utility(pars,J,K,Y,C,B,X,Z,combinations,Totalcosts,Feasible,asc,delta_0,beta_j,return_chosen=True):
