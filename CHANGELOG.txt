@@ -1,3 +1,6 @@
+0.1.8
+Now PortLogit supports interactions
+
 0.1.7
 Now PortLogit models support budget as pd.Series
 

@@ -28,7 +28,7 @@ class PortGen:
     mutually_exclusive : list, optional
         List of mutually-exclusive alternatives. Each element of the list is
         a numpy array of two elements that detail the two mutually-exclusive
-        alternatives.
+        alternatives, by detault None
     """
     # Init function
     def __init__(self, V: np.ndarray, C: np.ndarray = None, delta_0: float = None, B: float = None, mutually_exclusive: list = None):

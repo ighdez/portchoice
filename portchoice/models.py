@@ -33,13 +33,17 @@ class PortLogit:
         respondent, by default None
     B : float, optional
         Resource constraint, by default None
+    interactions : list, optional
+        List of alternative-interactions. Each element is a list that marks the 
+        alternatives that interact, from 0 to J-1, where J is the number of 
+        alternatives, by detault None
     mutually_exclusive : list, optional
         List of mutually-exclusive alternatives. Each element of the list is
         a numpy array of two elements that detail the two mutually-exclusive
-        alternatives.
+        alternatives, by detault None
     """
     # Init function
-    def __init__(self,Y: pd.DataFrame, X: pd.DataFrame = None, Z: pd.DataFrame = None, C: pd.DataFrame = None, B: float = None, mutually_exclusive: list = None):
+    def __init__(self, Y: pd.DataFrame, X: pd.DataFrame = None, Z: pd.DataFrame = None, C: pd.DataFrame = None, B: float = None, interactions: list = None, mutually_exclusive: list = None):
 
         # Array of choices
         self.Y = Y.to_numpy()
@@ -50,6 +54,9 @@ class PortLogit:
 
         # Calculate combinations array
         self.combinations = fullfact(np.repeat(2,self.J))
+
+        # Interactions
+        self.interactions = interactions
 
         # If mutually-exclusive alternatives are defined, then set utility to -inf
         self.mutually_exclusive = mutually_exclusive
@@ -172,7 +179,7 @@ class PortLogit:
         self.delta_0 = delta_0
 
         # Set arguments for the estimation routine
-        args = (self.J,self.K,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.Totalcosts,self.Feasible,self.asc,self.delta_0,self.beta_j)
+        args = (self.J,self.K,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,self.asc,self.delta_0,self.beta_j)
             
         # Minimise the LL function
         time0 = time.time()
@@ -190,7 +197,7 @@ class PortLogit:
             print('Computing Hessian')
 
         if hess:
-            hessian = Hessian(PortLogit._llf)(self.coef,self.J,self.K,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.Totalcosts,self.Feasible,asc,delta_0,beta_j)
+            hessian = Hessian(PortLogit._llf)(self.coef,self.J,self.K,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,asc,delta_0,beta_j)
             se = np.sqrt(np.diag(np.linalg.inv(hessian))).flatten()
         else:
             if method == 'bfgsmin':
@@ -257,7 +264,7 @@ class PortLogit:
         e = np.random.gumbel(size=(sims,self.combinations.shape[0]))
 
         # Get utility of each portfolio
-        Vp = _utility(self.coef,self.J,self.K,None,C,B,X,Z,self.combinations,Totalcosts,Feasible,self.asc,self.delta_0,self.beta_j,return_chosen=False)
+        Vp = _utility(self.coef,self.J,self.K,None,C,B,X,Z,self.combinations,self.interactions,Totalcosts,Feasible,self.asc,self.delta_0,self.beta_j,return_chosen=False)
 
         # Compute utility for each simulation and average
         Up_s = Vp + e
@@ -293,10 +300,10 @@ class PortLogit:
 
     # Portfolio choice model log-likelihood function
     @staticmethod
-    def _llf(pars,J,K,Y,C,B,X,Z,combinations,Totalcosts,Feasible,asc,delta_0,beta_j):
+    def _llf(pars,J,K,Y,C,B,X,Z,combinations,interactions,Totalcosts,Feasible,asc,delta_0,beta_j):
                 
         # Get utility functions of chosen alternatives and of portfolios
-        Vp, Vp_chosen = _utility(pars,J,K,Y,C,B,X,Z,combinations,Totalcosts,Feasible,asc,delta_0,beta_j, return_chosen = True)
+        Vp, Vp_chosen = _utility(pars,J,K,Y,C,B,X,Z,combinations,interactions,Totalcosts,Feasible,asc,delta_0,beta_j, return_chosen = True)
 
         # Clip to avoid numerical overflow
         Vp[Vp>700] = 700
@@ -962,7 +969,7 @@ class PortKT:
         return -sum(ll_n)
 
 # Utility functions method
-def _utility(pars,J,K,Y,C,B,X,Z,combinations,Totalcosts,Feasible,asc,delta_0,beta_j,return_chosen=True):
+def _utility(pars,J,K,Y,C,B,X,Z,combinations,interactions,Totalcosts,Feasible,asc,delta_0,beta_j,return_chosen=True):
 
             # Separate parameters of pars
             par_count = 0
@@ -973,6 +980,11 @@ def _utility(pars,J,K,Y,C,B,X,Z,combinations,Totalcosts,Feasible,asc,delta_0,bet
                 if asc[j] == 1:
                     delta_j[j] = pars[par_count]
                     par_count += 1
+
+            # Alternative-interaction parameters
+            if interactions is not None:
+                delta_ij = pars[par_count:(len(interactions)+par_count)]
+                par_count += len(interactions)
 
             # Attribute-specific parameters
             if X is not None:
@@ -1011,8 +1023,18 @@ def _utility(pars,J,K,Y,C,B,X,Z,combinations,Totalcosts,Feasible,asc,delta_0,bet
             # Construct utility functions of the portfolios
             Vp = Vj @ combinations.T
 
+            if interactions is not None:
+                for s in range(len(interactions)):
+                    syn = ' & '.join(['(combinations[:,' + str(ss) + ']==1)' for ss in interactions[s]])
+                    Vp = Vp + eval(syn)*delta_ij[s]
+
             if return_chosen:
                 Vp_chosen = np.sum(Vj*Y,axis=1)
+
+                if interactions is not None:
+                    for s in range(len(interactions)):
+                        syn = ' & '.join(['(Y[:,' + str(ss) + ']==1)' for ss in interactions[s]])
+                        Vp_chosen = Vp_chosen + eval(syn)*delta_ij[s]
 
             if B is not None:
                 Vp += delta_0*(B-Totalcosts.T).T
