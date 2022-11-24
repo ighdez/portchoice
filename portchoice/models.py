@@ -92,10 +92,11 @@ class PortLogit:
             self.Z = None
 
         # Define array or budget scalar and feasible combinations (if present)
-        if isinstance(B,float):
-            self.B = B
-        else:
-            self.B = B.to_numpy()
+        if B is not None:
+            if isinstance(B,float):
+                self.B = B
+            else:
+                self.B = B.to_numpy()
 
         # Define arrays of costs and totalcosts (if present)
         if C is not None:
