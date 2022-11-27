@@ -1,17 +1,7 @@
-0.1.10-6
-Bug fixes
-
-0.1.9
-PortKT improved
-
-0.1.8
-Now PortLogit supports interactions
-
-0.1.7
-Now PortLogit models support budget as pd.Series
-
-0.1.6
-added Portfolio KT model
+0.2.1
+New model: PortKT
+PortLogit supports interactions
+LCPortlogit improved with changes in PortLogit
 
 0.1.5
 added build-in BFGS minimizer
