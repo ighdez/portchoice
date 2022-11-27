@@ -196,7 +196,7 @@ class PortLogit:
         ll = res['fun']
         self.coef = res['x'].flatten()
 
-        if verbose > -1:
+        if verbose:
             print('Computing Hessian')
 
         if hess:
@@ -370,6 +370,9 @@ class LCPortLogit:
         # Calculate combinations array
         self.combinations = fullfact(np.repeat(2,self.J))
 
+        # Interactions are still not supported
+        self.interactions = None
+
         # If mutually-exclusive alternatives are defined, then set utility to -inf
         self.mutually_exclusive = mutually_exclusive
         
@@ -488,7 +491,7 @@ class LCPortLogit:
         self.delta_0 = delta_0
 
         # Set arguments for the estimation routine
-        args = (self.J,self.K,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.Totalcosts,self.Feasible,self.asc,self.delta_0,self.beta_j,self.lc)
+        args = (self.J,self.K,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,self.asc,self.delta_0,self.beta_j,self.lc)
             
         # Minimise the LL function using BFGSmin
         time0 = time.time()
@@ -501,11 +504,11 @@ class LCPortLogit:
         ll = res['fun']
         self.coef = res['x'].flatten()
 
-        if verbose > -1:
+        if verbose:
             print('Computing Hessian')
 
         if hess:
-            hessian = Hessian(LCPortLogit._llf)(self.coef,self.J,self.K,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.Totalcosts,self.Feasible,self.asc,self.delta_0,self.beta_j,self.lc)
+            hessian = Hessian(LCPortLogit._llf)(self.coef,self.J,self.K,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,self.asc,self.delta_0,self.beta_j,self.lc)
             se = np.sqrt(np.diag(np.linalg.inv(hessian))).flatten()
         else:
             if method == 'bfgsmin':
@@ -572,7 +575,7 @@ class LCPortLogit:
         e = np.random.gumbel(size=(sims,self.combinations.shape[0]))
 
         # Get utility of each portfolio
-        Vp = _utility(self.coef,self.J,self.K,None,C,B,X,Z,self.combinations,Totalcosts,Feasible,self.asc,self.delta_0,self.beta_j,return_chosen=False)
+        Vp = _utility(self.coef,self.J,self.K,None,C,B,X,Z,self.combinations,self.interactions,Totalcosts,Feasible,self.asc,self.delta_0,self.beta_j,return_chosen=False)
 
         # Compute utility for each simulation and average
         Up_s = Vp + e
@@ -608,25 +611,26 @@ class LCPortLogit:
 
     # Log-likelihood function
     @staticmethod
-    def _llf(pars,J,K,Y,C,B,X,Z,combinations,Totalcosts,Feasible,asc,delta_0,beta_j,lc):
-
-        # Separate class parameters and transform to probabilities (last lc-1 pars are the class membership parameters. First lc par is fixed in zero)
-        pars_classes = np.concatenate((0.,pars[-(lc-1):]),axis=None)
-        probs_classes = np.exp(pars_classes)/np.sum(np.exp(pars_classes))
+    def _llf(pars,J,K,Y,C,B,X,Z,combinations,interactions,Totalcosts,Feasible,asc,delta_0,beta_j,lc):
+    
 
         # Set utility parameters in a list
         pars_utility = []
-        lc_count = 0
-        npars = int(len(pars[:-(lc-1)])/lc)
+        par_count = 0
+        npars = int((len(pars)-(lc-1))/lc) #int(len(pars[:-(lc-1)])/lc)
         for c in range(lc):
-            pars_utility.append(pars[lc_count:(lc_count+npars)])
-            lc_count += npars
+            pars_utility.append(pars[par_count:(par_count+npars)])
+            par_count += npars
+
+        # Separate class parameters and transform to probabilities (last lc-1 pars are the class membership parameters. First lc par is fixed in zero)
+        pars_classes = np.concatenate((0.,pars[par_count:(par_count+lc-1)]),axis=None)
+        probs_classes = np.exp(pars_classes)/np.sum(np.exp(pars_classes))
 
         # Get utility of chosen alternatives and of portfolios per class
         probs_lc = []
 
         for c in range(lc):
-            Vp, Vp_chosen = _utility(pars_utility[c],J,K,Y,C,B,X,Z,combinations,Totalcosts,Feasible,asc,delta_0,beta_j, return_chosen = True)
+            Vp, Vp_chosen = _utility(pars_utility[c],J,K,Y,C,B,X,Z,combinations,interactions,Totalcosts,Feasible,asc,delta_0,beta_j, return_chosen = True)
 
             # Clip to avoid numerical overflow
             Vp[Vp>700] = 700
@@ -812,7 +816,7 @@ class PortKT:
         ll = res['fun']
         self.coef = res['x'].flatten()
 
-        if verbose > -1:
+        if verbose:
             print('Computing Hessian')
 
         if hess:
