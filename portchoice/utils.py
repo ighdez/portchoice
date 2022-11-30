@@ -102,8 +102,7 @@ def _bfgsmin(f,x0,maxiter=1000,tol=np.sqrt(np.finfo(float).eps),verbose=False,di
             break
 
         # BFGS ALGORITHM: construct the improvement and gradient improvement
-        x = x1
-        g1 = _numgr(f,x,difftype,diffeps,*args)
+        g1 = _numgr(f,x1,difftype,diffeps,*args)
         s0 = (lambd*d)[:,np.newaxis]
         y0 = (g1 - g0)[:,np.newaxis]
 
@@ -111,8 +110,9 @@ def _bfgsmin(f,x0,maxiter=1000,tol=np.sqrt(np.finfo(float).eps),verbose=False,di
         H0 = H0 + (y0 @ y0.T) / (y0.T @ s0) - (((H0 @ s0) @ s0.T) @ H0)/((s0.T @ H0) @ s0)
         
         # Store new gradient and compute the new value of objective function
-        g0 = g1
-        f_val = f(x,*args)
+        x = x1.copy()
+        g0 = g1.copy()
+        f_val = f1.copy()
 
         # Compute infinite norm of gradient vector 
         g_diff = np.abs(m)

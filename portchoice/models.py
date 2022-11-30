@@ -87,8 +87,10 @@ class PortLogit:
 
         # Define array of individual-specific covariates (if present)
         if Z is not None:
+            self.M = Z.shape[1]
             self.Z = Z.to_numpy()
         else:
+            self.M = 0
             self.Z = None
 
         # Define array or budget scalar and feasible combinations (if present)
@@ -182,7 +184,7 @@ class PortLogit:
         self.delta_0 = delta_0
 
         # Set arguments for the estimation routine
-        args = (self.J,self.K,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,self.asc,self.delta_0,self.beta_j)
+        args = (self.J,self.K,self.M,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,self.asc,self.delta_0,self.beta_j)
             
         # Minimise the LL function
         time0 = time.time()
@@ -200,7 +202,7 @@ class PortLogit:
             print('Computing Hessian')
 
         if hess:
-            hessian = Hessian(PortLogit._llf)(self.coef,self.J,self.K,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,asc,delta_0,beta_j)
+            hessian = Hessian(PortLogit._llf)(self.coef,self.J,self.K,self.M,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,asc,delta_0,beta_j)
             se = np.sqrt(np.diag(np.linalg.inv(hessian))).flatten()
         else:
             if method == 'bfgsmin':
@@ -251,6 +253,10 @@ class PortLogit:
             X = X.to_numpy().reshape((1,self.J,self.K))
         else:
             X = None
+
+        # Raise error if optimal portfolio is comptued with individual-specific variables
+        if Z is not None:
+            raise ValueError('Optimal portfolio with individual-specific variables is not implemented yet')
 
         # Define arrays of costs and totalcosts (if present)
         if C is not None:
@@ -303,10 +309,10 @@ class PortLogit:
 
     # Portfolio choice model log-likelihood function
     @staticmethod
-    def _llf(pars,J,K,Y,C,B,X,Z,combinations,interactions,Totalcosts,Feasible,asc,delta_0,beta_j):
+    def _llf(pars,J,K,M,Y,C,B,X,Z,combinations,interactions,Totalcosts,Feasible,asc,delta_0,beta_j):
                 
         # Get utility functions of chosen alternatives and of portfolios
-        Vp, Vp_chosen = _utility(pars,J,K,Y,C,B,X,Z,combinations,interactions,Totalcosts,Feasible,asc,delta_0,beta_j, return_chosen = True)
+        Vp, Vp_chosen = _utility(pars,J,K,M,Y,C,B,X,Z,combinations,interactions,Totalcosts,Feasible,asc,delta_0,beta_j, return_chosen = True)
 
         # Clip to avoid numerical overflow
         Vp[Vp>700] = 700
@@ -402,8 +408,10 @@ class LCPortLogit:
 
         # Define array of individual-specific covariates (if present)
         if Z is not None:
+            self.M = Z.shape[1]
             self.Z = Z.to_numpy()
         else:
+            self.M = 0
             self.Z = None
 
         # Define array or budget scalar and feasible combinations (if present)
@@ -491,7 +499,7 @@ class LCPortLogit:
         self.delta_0 = delta_0
 
         # Set arguments for the estimation routine
-        args = (self.J,self.K,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,self.asc,self.delta_0,self.beta_j,self.lc)
+        args = (self.J,self.K,self.M,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,self.asc,self.delta_0,self.beta_j,self.lc)
             
         # Minimise the LL function using BFGSmin
         time0 = time.time()
@@ -508,7 +516,7 @@ class LCPortLogit:
             print('Computing Hessian')
 
         if hess:
-            hessian = Hessian(LCPortLogit._llf)(self.coef,self.J,self.K,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,self.asc,self.delta_0,self.beta_j,self.lc)
+            hessian = Hessian(LCPortLogit._llf)(self.coef,self.J,self.K,self.M,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,self.asc,self.delta_0,self.beta_j,self.lc)
             se = np.sqrt(np.diag(np.linalg.inv(hessian))).flatten()
         else:
             if method == 'bfgsmin':
@@ -560,6 +568,10 @@ class LCPortLogit:
         else:
             X = None
 
+        # Raise error if optimal portfolio is comptued with individual-specific variables
+        if Z is not None:
+            raise ValueError('Optimal portfolio with individual-specific variables is not implemented yet')
+            
         # Define arrays of costs and totalcosts (if present)
         if C is not None:
             Totalcosts = (self.combinations * C.to_numpy()).sum(axis=1)[np.newaxis,:]
@@ -990,7 +1002,7 @@ class PortKT:
         return -sum(ll_n)
 
 # Utility functions method
-def _utility(pars,J,K,Y,C,B,X,Z,combinations,interactions,Totalcosts,Feasible,asc,delta_0,beta_j,return_chosen=True):
+def _utility(pars,J,K,M,Y,C,B,X,Z,combinations,interactions,Totalcosts,Feasible,asc,delta_0,beta_j,return_chosen=True):
 
             # Separate parameters of pars
             par_count = 0
@@ -1022,15 +1034,13 @@ def _utility(pars,J,K,Y,C,B,X,Z,combinations,interactions,Totalcosts,Feasible,as
                     Xb = X @ beta
                     par_count += K
             else:
-                beta= 0.
                 Xb = 0.
 
             # Individual-specific parameters
             if Z is not None:
-                theta = np.vstack([np.zeros(Z.shape[1]), pars[par_count:].reshape(((J-1),Z.shape[1]))])
+                theta = pars[par_count:(par_count+J*M)].reshape((J,M))
                 Zt = Z @ theta.T
             else:
-                theta = 0.
                 Zt = 0.
 
             # Cost parameter
