@@ -422,7 +422,7 @@ class LCPortLogit:
             self.Feasible = np.ones(self.combinations.shape)  
 
     # Estimate latent class portfolio logit model
-    def estimate(self, startv: np.ndarray, asc: np.ndarray, beta_j: np.ndarray = None, delta_0: float = None, hess: bool = True, tol: float = 1e-6, diffeps: float = np.sqrt(np.finfo(float).eps), verbose: bool = True):
+    def estimate(self, startv: np.ndarray, asc: np.ndarray, beta_j: np.ndarray = None, delta_0: float = None, hess: bool = True, tol: float = 1e-6, diffeps: float = (np.finfo(float).eps)**(1/3), verbose: bool = True):
         """Estimate latent class portfolio logit model
 
         It starts the optimisation routine of the latent class portfolio logit model. 
@@ -706,7 +706,7 @@ class PortKT:
             self.Z = None
 
     # Estimate function
-    def estimate(self, startv: np.ndarray, asc: np.ndarray, beta_j: np.ndarray = None, delta_0: float = None, sigma: float = None, alpha_0: float = None, gamma_0: float = None, method: str = 'bfgsmin', hess: bool = True, tol: float = 1e-6, diffeps: float = np.sqrt(np.finfo(float).eps), verbose: bool = True):
+    def estimate(self, startv: np.ndarray, asc: np.ndarray, beta_j: np.ndarray = None, delta_0: float = None, sigma: float = None, alpha_0: float = None, gamma_0: float = None, method: str = 'bfgsmin', hess: bool = True, tol: float = 1e-6, diffeps: float = (np.finfo(float).eps)**(1/3), verbose: bool = True):
         """Estimate portfolio KT model
 
         It starts the optimisation routine of the portfolio KT model. 
