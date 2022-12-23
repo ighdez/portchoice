@@ -9,7 +9,7 @@ import pandas as pd
 from scipy.optimize import minimize
 from numdifftools import Hessian
 from pyDOE2 import fullfact
-from portchoice.utils import _bfgsmin
+from portchoice.utils import _bfgsmin, numhess
 import time
 
 # Portfolio Logit model
@@ -115,7 +115,7 @@ class PortLogit:
             self.Feasible = np.ones(self.combinations.shape)  
 
     # Estimate portfolio logit model
-    def estimate(self, startv: np.ndarray, asc: np.ndarray, beta_j: np.ndarray = None, delta_0: float = None, method: str = 'bfgsmin', hess: bool = True, tol: float = 1e-6, verbose: bool = True):
+    def estimate(self, startv: np.ndarray, asc: np.ndarray, beta_j: np.ndarray = None, delta_0: float = None, hess: bool = True, tol: float = 1e-6, diffeps: float = (np.finfo(float).eps)**(1/3), verbose: bool = True):
         """Estimate portfolio logit model
 
         It starts the optimisation routine of the portfolio logit model. 
@@ -143,15 +143,14 @@ class PortLogit:
             If None and `C` exists, then the parameter of the marginal utility 
             of non-spent resources is estimated. If `delta_0` is a float, then 
             the parameter is fixed to the value of `delta_0`, by default None
-        method : str, optional
-            The optimisation method for the MLE routine. Available options are 
-            either the built-in BFGS minimiser ('bfgsmin') or a method available 
-            for `scipy.minimize.optimize`, by detault 'bfgsmin'
         hess : bool, optional
             Whether the finite-difference hessian is estimated at the end of the 
             estimation routine, by default True
         tol : float, optional
             Tolerance of the gradient in the estimation routine, by default 1e-6
+        diffeps : float, optionsl
+            Step size of the finite-difference methods (i.e., gradient and Hessian), 
+            by detault `np.sqrt(np.finfo(float).eps)`
         verbose : bool, optional
             Whether the estimation routine returns information at each iteration. 
             See the documentation of `scipy.optimize.minimize` with method 
@@ -187,10 +186,7 @@ class PortLogit:
         # Minimise the LL function
         time0 = time.time()
 
-        if method == 'bfgsmin':
-            res = _bfgsmin(PortLogit._llf,startv,tol=tol,verbose=verbose,difftype='forward',args=args)
-        else:
-            res = minimize(PortLogit._llf,startv,args=args,method=method,options={'gtol': tol, 'iprint': verbose})
+        res = _bfgsmin(PortLogit._llf,startv,tol=tol,verbose=verbose,difftype='forward',diffeps=diffeps,args=args)
         
         # Get/compute outputs
         ll = res['fun']
@@ -200,15 +196,11 @@ class PortLogit:
             print('Computing Hessian')
 
         if hess:
-            hessian = Hessian(PortLogit._llf)(self.coef,self.J,self.K,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,asc,delta_0,beta_j)
+            hessian = Hessian(PortLogit._llf,step=diffeps)(self.coef,self.J,self.K,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,asc,delta_0,beta_j)
             se = np.sqrt(np.diag(np.linalg.inv(hessian))).flatten()
         else:
-            if method == 'bfgsmin':
-                hessian = res['hessian']
-                se = np.sqrt(np.diag(np.linalg.inv(hessian))).flatten()
-            else:
-                hessian = 0.
-                se = 0.
+            hessian = res['hessian']
+            se = np.sqrt(np.diag(np.linalg.inv(hessian))).flatten()
 
         time1 = time.time()
         diff_time = time1-time0
@@ -430,7 +422,7 @@ class LCPortLogit:
             self.Feasible = np.ones(self.combinations.shape)  
 
     # Estimate latent class portfolio logit model
-    def estimate(self, startv: np.ndarray, asc: np.ndarray, beta_j: np.ndarray = None, delta_0: float = None, method: str = 'bfgsmin', hess: bool = True, tol: float = 1e-6, verbose: bool = True):
+    def estimate(self, startv: np.ndarray, asc: np.ndarray, beta_j: np.ndarray = None, delta_0: float = None, hess: bool = True, tol: float = 1e-6, diffeps: float = np.sqrt(np.finfo(float).eps), verbose: bool = True):
         """Estimate latent class portfolio logit model
 
         It starts the optimisation routine of the latent class portfolio logit model. 
@@ -458,15 +450,14 @@ class LCPortLogit:
             If None and `C` exists, then the parameter of the marginal utility 
             of non-spent resources is estimated. If `delta_0` is a float, then 
             the parameter is fixed to the value of `delta_0`, by default None
-        method : str, optional
-            The optimisation method for the MLE routine. Available options are 
-            either the built-in BFGS minimiser ('bfgsmin') or a method available 
-            for `scipy.minimize.optimize`, by detault 'bfgsmin'
         hess : bool, optional
             Whether the finite-difference hessian is estimated at the end of the 
             estimation routine, by default True
         tol : float, optional
             Tolerance of the gradient in the estimation routine, by default 1e-6
+        diffeps : float, optionsl
+            Step size of the finite-difference methods (i.e., gradient and Hessian), 
+            by detault `np.sqrt(np.finfo(float).eps)`
         verbose : bool, optional
             Whether the estimation routine returns information at each iteration. 
             See the documentation of `scipy.optimize.minimize` with method 
@@ -495,10 +486,7 @@ class LCPortLogit:
             
         # Minimise the LL function using BFGSmin
         time0 = time.time()
-        if method == 'bfgsmin':
-            res = _bfgsmin(LCPortLogit._llf,startv,tol=tol,verbose=verbose,difftype='forward',args=args)
-        else:
-            res = minimize(LCPortLogit._llf,startv,args=args,method=method,options={'gtol': tol, 'iprint': verbose})
+        res = _bfgsmin(LCPortLogit._llf,startv,tol=tol,verbose=verbose,difftype='forward',diffeps=diffeps,args=args)
         
         # Get/compute outputs
         ll = res['fun']
@@ -508,15 +496,11 @@ class LCPortLogit:
             print('Computing Hessian')
 
         if hess:
-            hessian = Hessian(LCPortLogit._llf)(self.coef,self.J,self.K,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,self.asc,self.delta_0,self.beta_j,self.lc)
+            hessian = numhess(LCPortLogit._llf,eps=diffeps)(self.coef,self.J,self.K,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,self.asc,self.delta_0,self.beta_j,self.lc)
             se = np.sqrt(np.diag(np.linalg.inv(hessian))).flatten()
         else:
-            if method == 'bfgsmin':
-                hessian = res['hessian']
-                se = np.sqrt(np.diag(np.linalg.inv(hessian))).flatten()
-            else:
-                hessian = 0.
-                se = 0.
+            hessian = res['hessian']
+            se = np.sqrt(np.diag(np.linalg.inv(hessian))).flatten()
 
         time1 = time.time()
         diff_time = time1-time0
@@ -722,7 +706,7 @@ class PortKT:
             self.Z = None
 
     # Estimate function
-    def estimate(self, startv: np.ndarray, asc: np.ndarray, beta_j: np.ndarray = None, delta_0: float = None, sigma: float = None, alpha_0: float = None, gamma_0: float = None, method: str = 'bfgsmin', hess: bool = True, tol: float = 1e-6, verbose: bool = True):
+    def estimate(self, startv: np.ndarray, asc: np.ndarray, beta_j: np.ndarray = None, delta_0: float = None, sigma: float = None, alpha_0: float = None, gamma_0: float = None, method: str = 'bfgsmin', hess: bool = True, tol: float = 1e-6, diffeps: float = np.sqrt(np.finfo(float).eps), verbose: bool = True):
         """Estimate portfolio KT model
 
         It starts the optimisation routine of the portfolio KT model. 
@@ -769,6 +753,9 @@ class PortKT:
             estimation routine, by default True
         tol : float, optional
             Tolerance of the gradient in the estimation routine, by default 1e-6
+        diffeps : float, optionsl
+            Step size of the finite-difference methods (i.e., gradient and Hessian), 
+            by detault `np.sqrt(np.finfo(float).eps)`
         verbose : bool, optional
             Whether the estimation routine returns information at each iteration. 
             See the documentation of `scipy.optimize.minimize` with method 
@@ -807,10 +794,7 @@ class PortKT:
         # Minimise the LL function
         time0 = time.time()
 
-        if method == 'bfgsmin':
-            res = _bfgsmin(PortKT._llf,startv,tol=tol,verbose=verbose,difftype='forward',args=args)
-        else:
-            res = minimize(PortKT._llf,startv,args=args,method=method,options={'gtol': tol, 'iprint': verbose})
+        res = _bfgsmin(PortKT._llf,startv,tol=tol,verbose=verbose,difftype='forward',diffeps=diffeps,args=args)
         
         # Get/compute outputs
         ll = res['fun']
@@ -820,15 +804,11 @@ class PortKT:
             print('Computing Hessian')
 
         if hess:
-            hessian = Hessian(PortKT._llf)(self.coef,self.N,self.J,self.K,self.Y,self.log_Price,self.Remaining,self.N_nonchosen,self.Case1,self.Case2,self.X,self.Z,self.asc,self.beta_j,self.delta_0,self.sigma,self.alpha_0,self.gamma_0)
+            hessian = numhess(PortKT._llf,eps=diffeps)(self.coef,self.N,self.J,self.K,self.Y,self.log_Price,self.Remaining,self.N_nonchosen,self.Case1,self.Case2,self.X,self.Z,self.asc,self.beta_j,self.delta_0,self.sigma,self.alpha_0,self.gamma_0)
             se = np.sqrt(np.diag(np.linalg.inv(hessian))).flatten()
         else:
-            if method == 'bfgsmin':
-                hessian = res['hessian']
-                se = np.sqrt(np.diag(np.linalg.inv(hessian))).flatten()
-            else:
-                hessian = 0.
-                se = 0.
+            hessian = res['hessian']
+            se = np.sqrt(np.diag(np.linalg.inv(hessian))).flatten()
 
         time1 = time.time()
         diff_time = time1-time0
