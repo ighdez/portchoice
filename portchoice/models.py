@@ -6,8 +6,6 @@
 # Load required modules
 import numpy as np
 import pandas as pd
-from scipy.optimize import minimize
-from numdifftools import Hessian
 from pyDOE2 import fullfact
 from portchoice.utils import _bfgsmin, numhess
 import time
@@ -196,7 +194,7 @@ class PortLogit:
             print('Computing Hessian')
 
         if hess:
-            hessian = Hessian(PortLogit._llf,step=diffeps)(self.coef,self.J,self.K,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,asc,delta_0,beta_j)
+            hessian = numhess(PortLogit._llf,eps=diffeps)(self.coef,self.J,self.K,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,asc,delta_0,beta_j)
             se = np.sqrt(np.diag(np.linalg.inv(hessian))).flatten()
         else:
             hessian = res['hessian']
@@ -706,7 +704,7 @@ class PortKT:
             self.Z = None
 
     # Estimate function
-    def estimate(self, startv: np.ndarray, asc: np.ndarray, beta_j: np.ndarray = None, delta_0: float = None, sigma: float = None, alpha_0: float = None, gamma_0: float = None, method: str = 'bfgsmin', hess: bool = True, tol: float = 1e-6, diffeps: float = (np.finfo(float).eps)**(1/3), verbose: bool = True):
+    def estimate(self, startv: np.ndarray, asc: np.ndarray, beta_j: np.ndarray = None, delta_0: float = None, sigma: float = None, alpha_0: float = None, gamma_0: float = None, hess: bool = True, tol: float = 1e-6, diffeps: float = (np.finfo(float).eps)**(1/3), verbose: bool = True):
         """Estimate portfolio KT model
 
         It starts the optimisation routine of the portfolio KT model. 
@@ -744,10 +742,6 @@ class PortKT:
         gamma_0 : float, optional
             If `gamma_0` is a float, then the parameter is fixed to the value 
             of `gamma_0`, otherwise is estimated as `exp(gamma_0)`, by default None
-        method : str, optional
-            The optimisation method for the MLE routine. Available options are 
-            either the built-in BFGS minimiser ('bfgsmin') or a method available 
-            for `scipy.minimize.optimize`, by detault 'bfgsmin'
         hess : bool, optional
             Whether the finite-difference hessian is estimated at the end of the 
             estimation routine, by default True
@@ -817,7 +811,7 @@ class PortKT:
         return ll, self.coef, se, hessian, diff_time
 
     def optimal_portfolio(self):
-        pass
+        raise TypeError("Optimal portfolio is not implemented yet")
 
     # Log-likelihood function
     @staticmethod
