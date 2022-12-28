@@ -1001,7 +1001,7 @@ def _utility(pars,J,K,Y,C,B,X,Z,combinations,interactions,Totalcosts,Feasible,as
 
             # Individual-specific parameters
             if Z is not None:
-                theta = np.vstack([np.zeros(Z.shape[1]), pars[par_count:].reshape(((J-1),Z.shape[1]))])
+                theta = pars[par_count:(par_count + J*Z.shape[1])].reshape(((J),Z.shape[1]))
                 Zt = Z @ theta.T
             else:
                 theta = 0.
