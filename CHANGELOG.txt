@@ -1,6 +1,7 @@
-0.2.3 (same as 0.2.2)
+0.2.5 (same as 0.2.2)
 Finite-difference hessian function from scratch
 Estimation of sociodemographics corrected
+Inclusion of initial consumed level in PortLogit and LCPortLogit
 
 0.2.1
 New model: PortKT

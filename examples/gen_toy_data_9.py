@@ -13,7 +13,8 @@ np.random.seed(666)
 # Set explanatory variables, costs and budget
 X = np.random.uniform(size=(N,J,K))
 C = np.random.uniform(size=(N,J))
-B = np.max(C.sum(axis=1)-np.mean(C.sum(axis=1)))
+B = 0.5
+B_init = 0.1
 
 # Set parameters
 beta = np.array([-6,-3,10])
@@ -23,7 +24,7 @@ delta_j = np.array([1,2,3,4])
 V = X @ beta + delta_j
 
 # Create PortGen obj
-generator = PortGen(V=V,C=C,B=B,delta_0=delta_0)
+generator = PortGen(V=V,C=C,B=B,B_init=B_init,delta_0=delta_0)
 
 # Generate choices
 y, ll = generator.get_choices()
@@ -34,4 +35,4 @@ names = ['Choice_' + str(i+1) for i in range(J)] + ['X_' + str(k+1) + '_' + str(
 X_to_export = X.reshape((N,J*K))
 to_export = np.c_[y,X_to_export,C,np.full(N,B)]
 to_export = pd.DataFrame(to_export,columns=names)
-to_export.to_csv('data/toy_data_5.csv')
+to_export.to_csv('data/toy_data_9.csv')

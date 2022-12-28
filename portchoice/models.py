@@ -31,6 +31,9 @@ class PortLogit:
         respondent, by default None
     B : float, optional
         Resource constraint, by default None
+    B_init : float, optional
+        Initial level of consumed resources, 
+        by default 0
     interactions : list, optional
         List of alternative-interactions. Each element is a list that marks the 
         alternatives that interact, from 0 to J-1, where J is the number of 
@@ -41,7 +44,7 @@ class PortLogit:
         alternatives, by detault None
     """
     # Init function
-    def __init__(self, Y: pd.DataFrame, X: pd.DataFrame = None, Z: pd.DataFrame = None, C: pd.DataFrame = None, B: float = None, interactions: list = None, mutually_exclusive: list = None):
+    def __init__(self, Y: pd.DataFrame, X: pd.DataFrame = None, Z: pd.DataFrame = None, C: pd.DataFrame = None, B: float = None, B_init: float = 0, interactions: list = None, mutually_exclusive: list = None):
 
         # Array of choices
         self.Y = Y.to_numpy()
@@ -90,6 +93,7 @@ class PortLogit:
             self.Z = None
 
         # Define array or budget scalar and feasible combinations (if present)
+        self.B_init = B_init
         if B is not None:
             if isinstance(B,float):
                 self.B = B
@@ -104,9 +108,9 @@ class PortLogit:
             self.Totalcosts = self.C @ self.combinations.T
             
             if B is not None:
-                self.Feasible = (self.Totalcosts.T <= self.B).T
+                self.Feasible = (self.B_init + self.Totalcosts.T <= self.B).T
             else:
-                self.Feasible = np.ones(self.Totalcosts.shape)                
+                self.Feasible = np.ones(self.Totalcosts.shape)
         else:
             self.C = 0
             self.Totalcosts = 0.
@@ -194,7 +198,7 @@ class PortLogit:
             print('Computing Hessian')
 
         if hess:
-            hessian = numhess(PortLogit._llf,eps=diffeps)(self.coef,self.J,self.K,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,asc,delta_0,beta_j)
+            hessian = numhess(PortLogit._llf,eps=diffeps)(self.coef,self.J,self.K,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,self.asc,self.delta_0,self.beta_j)
             se = np.sqrt(np.diag(np.linalg.inv(hessian))).flatten()
         else:
             hessian = res['hessian']
@@ -207,7 +211,7 @@ class PortLogit:
         return ll, self.coef, se, hessian, diff_time
 
     # Optimal portfolio
-    def optimal_portfolio(self,X: pd.Series = None, Z: pd.DataFrame = None, C: pd.Series = None, B: float = None,sims: int = 1000):
+    def optimal_portfolio(self,X: pd.Series = None, Z: pd.DataFrame = None, C: pd.Series = None, B: float = None, B_init: float = 0, sims: int = 1000):
         """Compute the optimal portfolio
 
         Computes the optimal portfolio based on the estimation results 
@@ -227,6 +231,9 @@ class PortLogit:
             Series with individual costs per alternative, by default None
         B : float, optional
             Resource constraint, by default None
+        B_init : float, optional
+            Initial level of consumed resources, 
+            by default 0
         sims : int, optional
             Number of Extreme Value random draws, by default 1000
 
@@ -246,7 +253,7 @@ class PortLogit:
         if C is not None:
             Totalcosts = (self.combinations * C.to_numpy()).sum(axis=1)[np.newaxis,:]
             if B is not None:
-                Feasible = Totalcosts <= B
+                Feasible = B_init + Totalcosts <= B
             else:
                 Feasible = np.ones((1,self.combinations.shape[0])).astype(bool)
         else:
@@ -290,6 +297,11 @@ class PortLogit:
 
         # Return pandas dataframe
         return portfolio
+
+    # Finite-difference Hessian
+    def hessian(self, eps: float = (np.finfo(float).eps)**(1/3)):
+        hess = numhess(PortLogit._llf,eps=eps)(self.coef,self.J,self.K,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,self.asc,self.delta_0,self.beta_j)
+        return hess
 
     # Portfolio choice model log-likelihood function
     @staticmethod
@@ -339,13 +351,16 @@ class LCPortLogit:
         respondent, by default None
     B : float, optional
         Resource constraint, by default None
+    B_init : float, optional
+        Initial level of consumed resources, 
+        by default 0
     mutually_exclusive : list, optional
         List of mutually-exclusive alternatives. Each element of the list is
         a numpy array of two elements that detail the two mutually-exclusive
         alternatives.
     """
     # Init function
-    def __init__(self,Y: pd.DataFrame, lc: int, X: pd.DataFrame = None, Z: pd.DataFrame = None, C: pd.DataFrame = None, B: float = None, mutually_exclusive: list = None):
+    def __init__(self,Y: pd.DataFrame, lc: int, X: pd.DataFrame = None, Z: pd.DataFrame = None, C: pd.DataFrame = None, B: float = None, B_init: float = 0, mutually_exclusive: list = None):
 
         # Array of choices
         self.Y = Y.to_numpy()
@@ -397,6 +412,7 @@ class LCPortLogit:
             self.Z = None
 
         # Define array or budget scalar and feasible combinations (if present)
+        self.B_init = B_init
         if B is not None:
             if isinstance(B,float):
                 self.B = B
@@ -411,7 +427,7 @@ class LCPortLogit:
             self.Totalcosts = self.C @ self.combinations.T
             
             if B is not None:
-                self.Feasible = (self.Totalcosts.T <= self.B).T
+                self.Feasible = (self.B_init + self.Totalcosts.T <= self.B).T
             else:
                 self.Feasible = np.ones(self.Totalcosts.shape)                
         else:
@@ -507,7 +523,7 @@ class LCPortLogit:
         return ll, self.coef, se, hessian, diff_time
 
     # Optimal portfolio
-    def optimal_portfolio(self,X: pd.Series = None, Z: pd.DataFrame = None, C: pd.Series = None, B: float = None,sims: int = 1000):
+    def optimal_portfolio(self,X: pd.Series = None, Z: pd.DataFrame = None, C: pd.Series = None, B: float = None, B_init: float = 0, sims: int = 1000):
         """Compute the optimal portfolio
 
         Computes the optimal portfolio based on the estimation results 
@@ -527,6 +543,9 @@ class LCPortLogit:
             Series with individual costs per alternative, by default None
         B : float, optional
             Resource constraint, by default None
+        B_init : float, optional
+            Initial level of consumed resources, 
+            by default 0
         sims : int, optional
             Number of Extreme Value random draws, by default 1000
 
@@ -546,7 +565,7 @@ class LCPortLogit:
         if C is not None:
             Totalcosts = (self.combinations * C.to_numpy()).sum(axis=1)[np.newaxis,:]
             if B is not None:
-                Feasible = Totalcosts <= B
+                Feasible = B_init + Totalcosts <= B
             else:
                 Feasible = np.ones((1,self.combinations.shape[0])).astype(bool)
         else:
@@ -590,6 +609,11 @@ class LCPortLogit:
 
         # Return pandas dataframe
         return portfolio
+
+    # Finite-difference Hessian
+    def hessian(self, eps: float = (np.finfo(float).eps)**(1/3)):
+        hess = numhess(LCPortLogit._llf,eps=eps)(self.coef,self.J,self.K,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,self.asc,self.delta_0,self.beta_j,self.lc)
+        return hess
 
     # Log-likelihood function
     @staticmethod
@@ -809,6 +833,11 @@ class PortKT:
 
         # Return results
         return ll, self.coef, se, hessian, diff_time
+
+    # Finite-difference Hessian
+    def hessian(self, eps: float = (np.finfo(float).eps)**(1/3)):
+        hess = numhess(PortKT._llf,eps=eps)(self.coef,self.N,self.J,self.K,self.Y,self.log_Price,self.Remaining,self.N_nonchosen,self.Case1,self.Case2,self.X,self.Z,self.asc,self.beta_j,self.delta_0,self.sigma,self.alpha_0,self.gamma_0)
+        return hess
 
     def optimal_portfolio(self):
         raise TypeError("Optimal portfolio is not implemented yet")
