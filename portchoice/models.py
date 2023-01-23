@@ -37,13 +37,17 @@ class PortLogit:
         List of alternative-interactions. Each element is a list that marks the 
         alternatives that interact, from 0 to J-1, where J is the number of 
         alternatives, by detault None
+    base_combinations : np.ndarray, optional
+        Array with initial set of combinations. Can be used to discard unfeasible 
+        combinations upfront. If no list is provided, PortChoice will construct a 
+        set of all possible combinations from a full-factorial design.
     mutually_exclusive : list, optional
         List of mutually-exclusive alternatives. Each element of the list is
         a numpy array of two elements that detail the two mutually-exclusive
         alternatives, by detault None
     """
     # Init function
-    def __init__(self, Y: pd.DataFrame, X: pd.DataFrame = None, Z: pd.DataFrame = None, C: pd.DataFrame = None, B: float = None, interactions: list = None, mutually_exclusive: list = None):
+    def __init__(self, Y: pd.DataFrame, X: pd.DataFrame = None, Z: pd.DataFrame = None, C: pd.DataFrame = None, B: float = None, interactions: list = None, base_combinations: np.ndarray = None, mutually_exclusive: list = None):
 
         # Array of choices
         self.Y = Y.to_numpy()
@@ -53,8 +57,11 @@ class PortLogit:
         self.J = self.Y.shape[1]
 
         # Calculate combinations array
-        self.combinations = fullfact(np.repeat(2,self.J))
-
+        if base_combinations is not None:
+            self.combinations = fullfact(np.repeat(2,self.J))
+        else:
+            self.combinations = base_combinations
+        
         # Interactions
         self.interactions = interactions
 
@@ -355,13 +362,17 @@ class LCPortLogit:
         respondent, by default None
     B : float, optional
         Resource constraint, by default None
+    base_combinations : np.ndarray, optional
+        Array with initial set of combinations. Can be used to discard unfeasible 
+        combinations upfront. If no list is provided, PortChoice will construct a 
+        set of all possible combinations from a full-factorial design.
     mutually_exclusive : list, optional
         List of mutually-exclusive alternatives. Each element of the list is
         a numpy array of two elements that detail the two mutually-exclusive
         alternatives.
     """
     # Init function
-    def __init__(self,Y: pd.DataFrame, lc: int, X: pd.DataFrame = None, Z: pd.DataFrame = None, C: pd.DataFrame = None, B: float = None, mutually_exclusive: list = None):
+    def __init__(self,Y: pd.DataFrame, lc: int, X: pd.DataFrame = None, Z: pd.DataFrame = None, C: pd.DataFrame = None, B: float = None, base_combinations: np.ndarray = None, mutually_exclusive: list = None):
 
         # Array of choices
         self.Y = Y.to_numpy()
@@ -374,7 +385,10 @@ class LCPortLogit:
         self.J = self.Y.shape[1]
 
         # Calculate combinations array
-        self.combinations = fullfact(np.repeat(2,self.J))
+        if base_combinations is not None:
+            self.combinations = fullfact(np.repeat(2,self.J))
+        else:
+            self.combinations = base_combinations
 
         # Interactions are still not supported
         self.interactions = None
