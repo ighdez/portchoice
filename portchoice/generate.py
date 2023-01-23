@@ -25,19 +25,26 @@ class PortGen:
     B : float, optional
         Available resources. Must be different from None if `C` is defined, 
         by default None
+    base_combinations : np.ndarray, optional
+        Array with initial set of combinations. Can be used to discard unfeasible 
+        combinations upfront. If no list is provided, PortChoice will construct a 
+        set of all possible combinations from a full-factorial design.
     mutually_exclusive : list, optional
         List of mutually-exclusive alternatives. Each element of the list is
         a numpy array of two elements that detail the two mutually-exclusive
         alternatives, by detault None
     """
     # Init function
-    def __init__(self, V: np.ndarray, C: np.ndarray = None, delta_0: float = None, B: float = None, mutually_exclusive: list = None):
+    def __init__(self, V: np.ndarray, C: np.ndarray = None, delta_0: float = None, B: float = None, base_combinations: np.ndarray = None, mutually_exclusive: list = None):
 
         # Number of individual choices
         J = V.shape[1]
 
         # Create matrix of combinations
-        self.combinations = fullfact(np.repeat(2,J))
+        if base_combinations is not None:
+            self.combinations = fullfact(np.repeat(2,J))
+        else:
+            self.combinations = base_combinations
 
         # If mutually-exclusive alternatives are defined, then set utility to -inf
         if mutually_exclusive is not None:
