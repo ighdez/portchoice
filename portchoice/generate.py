@@ -42,9 +42,9 @@ class PortGen:
 
         # Create matrix of combinations
         if base_combinations is not None:
-            self.combinations = fullfact(np.repeat(2,J))
-        else:
             self.combinations = base_combinations
+        else:
+            self.combinations = fullfact(np.repeat(2,J))
 
         # If mutually-exclusive alternatives are defined, then set utility to -inf
         if mutually_exclusive is not None:

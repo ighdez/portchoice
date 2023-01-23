@@ -58,9 +58,9 @@ class PortLogit:
 
         # Calculate combinations array
         if base_combinations is not None:
-            self.combinations = fullfact(np.repeat(2,self.J))
-        else:
             self.combinations = base_combinations
+        else:
+            self.combinations = fullfact(np.repeat(2,self.J))
         
         # Interactions
         self.interactions = interactions
@@ -280,7 +280,7 @@ class PortLogit:
         e = np.random.gumbel(size=(sims,self.combinations.shape[0]))
 
         # Get utility of each portfolio
-        Vp = _utility(self.coef,self.J,self.K,None,C,B,X,Z,self.combinations,self.interactions,Totalcosts,Feasible,self.asc,self.delta_0,self.beta_j,return_chosen=False)
+        Vp = _utility(self.coef,self.J,self.K,self.M,None,C,B,X,Z,self.combinations,self.interactions,Totalcosts,Feasible,self.asc,self.delta_0,self.beta_j,return_chosen=False)
 
         # Compute utility for each simulation and average
         Up_s = Vp + e
@@ -386,9 +386,9 @@ class LCPortLogit:
 
         # Calculate combinations array
         if base_combinations is not None:
-            self.combinations = fullfact(np.repeat(2,self.J))
-        else:
             self.combinations = base_combinations
+        else:
+            self.combinations = fullfact(np.repeat(2,self.J))
 
         # Interactions are still not supported
         self.interactions = None

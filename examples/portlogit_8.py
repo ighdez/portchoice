@@ -21,7 +21,7 @@ C = None
 B = None
 
 # Create model
-obj = PortLogit(Y,X,Z,C,B)
+obj = PortLogit(Y=Y,X=X,Z=Z,C=C,B=B)
 
 # Estimate
 asc = np.ones(4).astype(int)
@@ -32,8 +32,8 @@ fval, coef, se, hessian, diff_time = obj.estimate(startv,delta_0=0.,asc=asc,tol=
 results = pd.DataFrame(np.c_[coef,se,coef/se],columns=['Estimate','Std.Err.','T-stat'],index=['ASC' + str(j+1) for j in range(asc.sum())] + Xvars + [z + '_' + str(j+1) for j in range(J) for z in Zvars])
 print(results)
 print(diff_time)
-exit()
+# exit()
 # Get the optimal portfolio
-portfolio = obj.optimal_portfolio(coef, C,B,X.mean().to_numpy(),None,asc=asc,delta_0=0,beta_j=None,sims=10000)
+portfolio = obj.optimal_portfolio(C=C,B=B,X=X.mean(),sims=10000)
 
 print(portfolio)
