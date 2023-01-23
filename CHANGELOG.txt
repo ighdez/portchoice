@@ -1,3 +1,6 @@
+0.2.6
+Add base combinations
+
 0.2.2
 Corrected individual-specific variables in estimations
 
