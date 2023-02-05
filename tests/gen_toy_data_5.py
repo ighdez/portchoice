@@ -17,19 +17,16 @@ B = np.max(C.sum(axis=1)-np.mean(C.sum(axis=1)))
 
 # Set parameters
 beta = np.array([-6,-3,10])
-delta_0 = 0.01
+delta_0 = 1
 delta_j = np.array([1,2,3,4])
 # Create utility
 V = X @ beta + delta_j
 
 # Create PortGen obj
-generator = PortGen(V,C,B,delta_0)
+generator = PortGen(V=V,C=C,B=B,delta_0=delta_0)
 
 # Generate choices
-y, y_p = generator.get_choices()
-
-# Compute log-likelihood
-ll = generator.get_ll(y_p)
+y, ll = generator.get_choices()
 print('Log-likelihood of the full sample is ' + str(round(np.sum(ll),2)))
 
 # Generate arrays

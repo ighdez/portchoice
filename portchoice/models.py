@@ -6,10 +6,8 @@
 # Load required modules
 import numpy as np
 import pandas as pd
-from scipy.optimize import minimize
-from numdifftools import Hessian
 from pyDOE2 import fullfact
-from portchoice.utils import _bfgsmin
+from portchoice.utils import _bfgsmin, numhess
 import time
 
 # Portfolio Logit model
@@ -33,6 +31,9 @@ class PortLogit:
         respondent, by default None
     B : float, optional
         Resource constraint, by default None
+    B_init : float, optional
+        Initial level of consumed resources, 
+        by default 0
     interactions : list, optional
         List of alternative-interactions. Each element is a list that marks the 
         alternatives that interact, from 0 to J-1, where J is the number of 
@@ -47,7 +48,11 @@ class PortLogit:
         alternatives, by detault None
     """
     # Init function
+<<<<<<< HEAD
     def __init__(self, Y: pd.DataFrame, X: pd.DataFrame = None, Z: pd.DataFrame = None, C: pd.DataFrame = None, B: float = None, interactions: list = None, base_combinations: np.ndarray = None, mutually_exclusive: list = None):
+=======
+    def __init__(self, Y: pd.DataFrame, X: pd.DataFrame = None, Z: pd.DataFrame = None, C: pd.DataFrame = None, B: float = None, B_init: float = 0, interactions: list = None, mutually_exclusive: list = None):
+>>>>>>> create-hessian-function
 
         # Array of choices
         self.Y = Y.to_numpy()
@@ -101,6 +106,7 @@ class PortLogit:
             self.Z = None
 
         # Define array or budget scalar and feasible combinations (if present)
+        self.B_init = B_init
         if B is not None:
             if isinstance(B,float):
                 self.B = B
@@ -115,16 +121,16 @@ class PortLogit:
             self.Totalcosts = self.C @ self.combinations.T
             
             if B is not None:
-                self.Feasible = (self.Totalcosts.T <= self.B).T
+                self.Feasible = (self.B_init + self.Totalcosts.T <= self.B).T
             else:
-                self.Feasible = np.ones(self.Totalcosts.shape)                
+                self.Feasible = np.ones(self.Totalcosts.shape)
         else:
             self.C = 0
             self.Totalcosts = 0.
             self.Feasible = np.ones(self.combinations.shape)  
 
     # Estimate portfolio logit model
-    def estimate(self, startv: np.ndarray, asc: np.ndarray, beta_j: np.ndarray = None, delta_0: float = None, method: str = 'bfgsmin', hess: bool = True, tol: float = 1e-6, verbose: bool = True):
+    def estimate(self, startv: np.ndarray, asc: np.ndarray, beta_j: np.ndarray = None, delta_0: float = None, hess: bool = True, tol: float = 1e-6, diffeps: float = (np.finfo(float).eps)**(1/3), verbose: bool = True):
         """Estimate portfolio logit model
 
         It starts the optimisation routine of the portfolio logit model. 
@@ -152,15 +158,14 @@ class PortLogit:
             If None and `C` exists, then the parameter of the marginal utility 
             of non-spent resources is estimated. If `delta_0` is a float, then 
             the parameter is fixed to the value of `delta_0`, by default None
-        method : str, optional
-            The optimisation method for the MLE routine. Available options are 
-            either the built-in BFGS minimiser ('bfgsmin') or a method available 
-            for `scipy.minimize.optimize`, by detault 'bfgsmin'
         hess : bool, optional
             Whether the finite-difference hessian is estimated at the end of the 
             estimation routine, by default True
         tol : float, optional
             Tolerance of the gradient in the estimation routine, by default 1e-6
+        diffeps : float, optionsl
+            Step size of the finite-difference methods (i.e., gradient and Hessian), 
+            by detault `np.sqrt(np.finfo(float).eps)`
         verbose : bool, optional
             Whether the estimation routine returns information at each iteration. 
             See the documentation of `scipy.optimize.minimize` with method 
@@ -196,10 +201,7 @@ class PortLogit:
         # Minimise the LL function
         time0 = time.time()
 
-        if method == 'bfgsmin':
-            res = _bfgsmin(PortLogit._llf,startv,tol=tol,verbose=verbose,difftype='forward',args=args)
-        else:
-            res = minimize(PortLogit._llf,startv,args=args,method=method,options={'gtol': tol, 'iprint': verbose})
+        res = _bfgsmin(PortLogit._llf,startv,tol=tol,verbose=verbose,difftype='forward',diffeps=diffeps,args=args)
         
         # Get/compute outputs
         ll = res['fun']
@@ -209,15 +211,15 @@ class PortLogit:
             print('Computing Hessian')
 
         if hess:
+<<<<<<< HEAD
             hessian = Hessian(PortLogit._llf)(self.coef,self.J,self.K,self.M,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,asc,delta_0,beta_j)
+=======
+            hessian = numhess(PortLogit._llf,eps=diffeps)(self.coef,self.J,self.K,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,self.asc,self.delta_0,self.beta_j)
+>>>>>>> create-hessian-function
             se = np.sqrt(np.diag(np.linalg.inv(hessian))).flatten()
         else:
-            if method == 'bfgsmin':
-                hessian = res['hessian']
-                se = np.sqrt(np.diag(np.linalg.inv(hessian))).flatten()
-            else:
-                hessian = 0.
-                se = 0.
+            hessian = res['hessian']
+            se = np.sqrt(np.diag(np.linalg.inv(hessian))).flatten()
 
         time1 = time.time()
         diff_time = time1-time0
@@ -226,7 +228,7 @@ class PortLogit:
         return ll, self.coef, se, hessian, diff_time
 
     # Optimal portfolio
-    def optimal_portfolio(self,X: pd.Series = None, Z: pd.DataFrame = None, C: pd.Series = None, B: float = None,sims: int = 1000):
+    def optimal_portfolio(self,X: pd.Series = None, Z: pd.DataFrame = None, C: pd.Series = None, B: float = None, B_init: float = 0, sims: int = 1000):
         """Compute the optimal portfolio
 
         Computes the optimal portfolio based on the estimation results 
@@ -246,6 +248,9 @@ class PortLogit:
             Series with individual costs per alternative, by default None
         B : float, optional
             Resource constraint, by default None
+        B_init : float, optional
+            Initial level of consumed resources, 
+            by default 0
         sims : int, optional
             Number of Extreme Value random draws, by default 1000
 
@@ -269,7 +274,7 @@ class PortLogit:
         if C is not None:
             Totalcosts = (self.combinations * C.to_numpy()).sum(axis=1)[np.newaxis,:]
             if B is not None:
-                Feasible = Totalcosts <= B
+                Feasible = B_init + Totalcosts <= B
             else:
                 Feasible = np.ones((1,self.combinations.shape[0])).astype(bool)
         else:
@@ -313,6 +318,11 @@ class PortLogit:
 
         # Return pandas dataframe
         return portfolio
+
+    # Finite-difference Hessian
+    def hessian(self, eps: float = (np.finfo(float).eps)**(1/3)):
+        hess = numhess(PortLogit._llf,eps=eps)(self.coef,self.J,self.K,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,self.asc,self.delta_0,self.beta_j)
+        return hess
 
     # Portfolio choice model log-likelihood function
     @staticmethod
@@ -362,17 +372,27 @@ class LCPortLogit:
         respondent, by default None
     B : float, optional
         Resource constraint, by default None
+<<<<<<< HEAD
     base_combinations : np.ndarray, optional
         Array with initial set of combinations. Can be used to discard unfeasible 
         combinations upfront. If no list is provided, PortChoice will construct a 
         set of all possible combinations from a full-factorial design.
+=======
+    B_init : float, optional
+        Initial level of consumed resources, 
+        by default 0
+>>>>>>> create-hessian-function
     mutually_exclusive : list, optional
         List of mutually-exclusive alternatives. Each element of the list is
         a numpy array of two elements that detail the two mutually-exclusive
         alternatives.
     """
     # Init function
+<<<<<<< HEAD
     def __init__(self,Y: pd.DataFrame, lc: int, X: pd.DataFrame = None, Z: pd.DataFrame = None, C: pd.DataFrame = None, B: float = None, base_combinations: np.ndarray = None, mutually_exclusive: list = None):
+=======
+    def __init__(self,Y: pd.DataFrame, lc: int, X: pd.DataFrame = None, Z: pd.DataFrame = None, C: pd.DataFrame = None, B: float = None, B_init: float = 0, mutually_exclusive: list = None):
+>>>>>>> create-hessian-function
 
         # Array of choices
         self.Y = Y.to_numpy()
@@ -429,6 +449,7 @@ class LCPortLogit:
             self.Z = None
 
         # Define array or budget scalar and feasible combinations (if present)
+        self.B_init = B_init
         if B is not None:
             if isinstance(B,float):
                 self.B = B
@@ -443,7 +464,7 @@ class LCPortLogit:
             self.Totalcosts = self.C @ self.combinations.T
             
             if B is not None:
-                self.Feasible = (self.Totalcosts.T <= self.B).T
+                self.Feasible = (self.B_init + self.Totalcosts.T <= self.B).T
             else:
                 self.Feasible = np.ones(self.Totalcosts.shape)                
         else:
@@ -452,7 +473,7 @@ class LCPortLogit:
             self.Feasible = np.ones(self.combinations.shape)  
 
     # Estimate latent class portfolio logit model
-    def estimate(self, startv: np.ndarray, asc: np.ndarray, beta_j: np.ndarray = None, delta_0: float = None, method: str = 'bfgsmin', hess: bool = True, tol: float = 1e-6, verbose: bool = True):
+    def estimate(self, startv: np.ndarray, asc: np.ndarray, beta_j: np.ndarray = None, delta_0: float = None, hess: bool = True, tol: float = 1e-6, diffeps: float = (np.finfo(float).eps)**(1/3), verbose: bool = True):
         """Estimate latent class portfolio logit model
 
         It starts the optimisation routine of the latent class portfolio logit model. 
@@ -480,15 +501,14 @@ class LCPortLogit:
             If None and `C` exists, then the parameter of the marginal utility 
             of non-spent resources is estimated. If `delta_0` is a float, then 
             the parameter is fixed to the value of `delta_0`, by default None
-        method : str, optional
-            The optimisation method for the MLE routine. Available options are 
-            either the built-in BFGS minimiser ('bfgsmin') or a method available 
-            for `scipy.minimize.optimize`, by detault 'bfgsmin'
         hess : bool, optional
             Whether the finite-difference hessian is estimated at the end of the 
             estimation routine, by default True
         tol : float, optional
             Tolerance of the gradient in the estimation routine, by default 1e-6
+        diffeps : float, optionsl
+            Step size of the finite-difference methods (i.e., gradient and Hessian), 
+            by detault `np.sqrt(np.finfo(float).eps)`
         verbose : bool, optional
             Whether the estimation routine returns information at each iteration. 
             See the documentation of `scipy.optimize.minimize` with method 
@@ -517,10 +537,7 @@ class LCPortLogit:
             
         # Minimise the LL function using BFGSmin
         time0 = time.time()
-        if method == 'bfgsmin':
-            res = _bfgsmin(LCPortLogit._llf,startv,tol=tol,verbose=verbose,difftype='forward',args=args)
-        else:
-            res = minimize(LCPortLogit._llf,startv,args=args,method=method,options={'gtol': tol, 'iprint': verbose})
+        res = _bfgsmin(LCPortLogit._llf,startv,tol=tol,verbose=verbose,difftype='forward',diffeps=diffeps,args=args)
         
         # Get/compute outputs
         ll = res['fun']
@@ -530,15 +547,15 @@ class LCPortLogit:
             print('Computing Hessian')
 
         if hess:
+<<<<<<< HEAD
             hessian = Hessian(LCPortLogit._llf)(self.coef,self.J,self.K,self.M,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,self.asc,self.delta_0,self.beta_j,self.lc)
+=======
+            hessian = numhess(LCPortLogit._llf,eps=diffeps)(self.coef,self.J,self.K,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,self.asc,self.delta_0,self.beta_j,self.lc)
+>>>>>>> create-hessian-function
             se = np.sqrt(np.diag(np.linalg.inv(hessian))).flatten()
         else:
-            if method == 'bfgsmin':
-                hessian = res['hessian']
-                se = np.sqrt(np.diag(np.linalg.inv(hessian))).flatten()
-            else:
-                hessian = 0.
-                se = 0.
+            hessian = res['hessian']
+            se = np.sqrt(np.diag(np.linalg.inv(hessian))).flatten()
 
         time1 = time.time()
         diff_time = time1-time0
@@ -547,7 +564,7 @@ class LCPortLogit:
         return ll, self.coef, se, hessian, diff_time
 
     # Optimal portfolio
-    def optimal_portfolio(self,X: pd.Series = None, Z: pd.DataFrame = None, C: pd.Series = None, B: float = None,sims: int = 1000):
+    def optimal_portfolio(self,X: pd.Series = None, Z: pd.DataFrame = None, C: pd.Series = None, B: float = None, B_init: float = 0, sims: int = 1000):
         """Compute the optimal portfolio
 
         Computes the optimal portfolio based on the estimation results 
@@ -567,6 +584,9 @@ class LCPortLogit:
             Series with individual costs per alternative, by default None
         B : float, optional
             Resource constraint, by default None
+        B_init : float, optional
+            Initial level of consumed resources, 
+            by default 0
         sims : int, optional
             Number of Extreme Value random draws, by default 1000
 
@@ -590,7 +610,7 @@ class LCPortLogit:
         if C is not None:
             Totalcosts = (self.combinations * C.to_numpy()).sum(axis=1)[np.newaxis,:]
             if B is not None:
-                Feasible = Totalcosts <= B
+                Feasible = B_init + Totalcosts <= B
             else:
                 Feasible = np.ones((1,self.combinations.shape[0])).astype(bool)
         else:
@@ -634,6 +654,11 @@ class LCPortLogit:
 
         # Return pandas dataframe
         return portfolio
+
+    # Finite-difference Hessian
+    def hessian(self, eps: float = (np.finfo(float).eps)**(1/3)):
+        hess = numhess(LCPortLogit._llf,eps=eps)(self.coef,self.J,self.K,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,self.asc,self.delta_0,self.beta_j,self.lc)
+        return hess
 
     # Log-likelihood function
     @staticmethod
@@ -748,7 +773,7 @@ class PortKT:
             self.Z = None
 
     # Estimate function
-    def estimate(self, startv: np.ndarray, asc: np.ndarray, beta_j: np.ndarray = None, delta_0: float = None, sigma: float = None, alpha_0: float = None, gamma_0: float = None, method: str = 'bfgsmin', hess: bool = True, tol: float = 1e-6, verbose: bool = True):
+    def estimate(self, startv: np.ndarray, asc: np.ndarray, beta_j: np.ndarray = None, delta_0: float = None, sigma: float = None, alpha_0: float = None, gamma_0: float = None, hess: bool = True, tol: float = 1e-6, diffeps: float = (np.finfo(float).eps)**(1/3), verbose: bool = True):
         """Estimate portfolio KT model
 
         It starts the optimisation routine of the portfolio KT model. 
@@ -786,15 +811,14 @@ class PortKT:
         gamma_0 : float, optional
             If `gamma_0` is a float, then the parameter is fixed to the value 
             of `gamma_0`, otherwise is estimated as `exp(gamma_0)`, by default None
-        method : str, optional
-            The optimisation method for the MLE routine. Available options are 
-            either the built-in BFGS minimiser ('bfgsmin') or a method available 
-            for `scipy.minimize.optimize`, by detault 'bfgsmin'
         hess : bool, optional
             Whether the finite-difference hessian is estimated at the end of the 
             estimation routine, by default True
         tol : float, optional
             Tolerance of the gradient in the estimation routine, by default 1e-6
+        diffeps : float, optionsl
+            Step size of the finite-difference methods (i.e., gradient and Hessian), 
+            by detault `np.sqrt(np.finfo(float).eps)`
         verbose : bool, optional
             Whether the estimation routine returns information at each iteration. 
             See the documentation of `scipy.optimize.minimize` with method 
@@ -833,10 +857,7 @@ class PortKT:
         # Minimise the LL function
         time0 = time.time()
 
-        if method == 'bfgsmin':
-            res = _bfgsmin(PortKT._llf,startv,tol=tol,verbose=verbose,difftype='forward',args=args)
-        else:
-            res = minimize(PortKT._llf,startv,args=args,method=method,options={'gtol': tol, 'iprint': verbose})
+        res = _bfgsmin(PortKT._llf,startv,tol=tol,verbose=verbose,difftype='forward',diffeps=diffeps,args=args)
         
         # Get/compute outputs
         ll = res['fun']
@@ -846,15 +867,11 @@ class PortKT:
             print('Computing Hessian')
 
         if hess:
-            hessian = Hessian(PortKT._llf)(self.coef,self.N,self.J,self.K,self.Y,self.log_Price,self.Remaining,self.N_nonchosen,self.Case1,self.Case2,self.X,self.Z,self.asc,self.beta_j,self.delta_0,self.sigma,self.alpha_0,self.gamma_0)
+            hessian = numhess(PortKT._llf,eps=diffeps)(self.coef,self.N,self.J,self.K,self.Y,self.log_Price,self.Remaining,self.N_nonchosen,self.Case1,self.Case2,self.X,self.Z,self.asc,self.beta_j,self.delta_0,self.sigma,self.alpha_0,self.gamma_0)
             se = np.sqrt(np.diag(np.linalg.inv(hessian))).flatten()
         else:
-            if method == 'bfgsmin':
-                hessian = res['hessian']
-                se = np.sqrt(np.diag(np.linalg.inv(hessian))).flatten()
-            else:
-                hessian = 0.
-                se = 0.
+            hessian = res['hessian']
+            se = np.sqrt(np.diag(np.linalg.inv(hessian))).flatten()
 
         time1 = time.time()
         diff_time = time1-time0
@@ -862,8 +879,13 @@ class PortKT:
         # Return results
         return ll, self.coef, se, hessian, diff_time
 
+    # Finite-difference Hessian
+    def hessian(self, eps: float = (np.finfo(float).eps)**(1/3)):
+        hess = numhess(PortKT._llf,eps=eps)(self.coef,self.N,self.J,self.K,self.Y,self.log_Price,self.Remaining,self.N_nonchosen,self.Case1,self.Case2,self.X,self.Z,self.asc,self.beta_j,self.delta_0,self.sigma,self.alpha_0,self.gamma_0)
+        return hess
+
     def optimal_portfolio(self):
-        pass
+        raise TypeError("Optimal portfolio is not implemented yet")
 
     # Log-likelihood function
     @staticmethod
@@ -1052,7 +1074,11 @@ def _utility(pars,J,K,M,Y,C,B,X,Z,combinations,interactions,Totalcosts,Feasible,
 
             # Individual-specific parameters
             if Z is not None:
+<<<<<<< HEAD
                 theta = pars[par_count:(par_count+J*M)].reshape((J,M))
+=======
+                theta = pars[par_count:(par_count + J*Z.shape[1])].reshape(((J),Z.shape[1]))
+>>>>>>> create-hessian-function
                 Zt = Z @ theta.T
             else:
                 Zt = 0.

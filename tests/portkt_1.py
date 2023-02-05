@@ -23,7 +23,7 @@ obj = PortKT(Y,C,B,X)
 # Estimate
 asc = np.array([0,1,1,1])
 startv = np.zeros(asc.sum() + K + 1)
-fval, coef, se, hessian, diff_time = obj.estimate(startv,delta_0=None,sigma=1.,alpha_0=1.,gamma_0=1.,asc=asc,tol=1e-6,verbose=-1)
+fval, coef, se, hessian, diff_time = obj.estimate(startv,delta_0=None,sigma=1.,alpha_0=1.,gamma_0=1.,asc=asc,tol=1e-6,verbose=True)
 
 # Construct results matrix
 results = pd.DataFrame(np.c_[coef,se,coef/se],columns=['Estimate','Std.Err.','T-stat'],index=['ASC' + str(j+1) for j in range(asc.sum())] + Xvars + ['Cost'])

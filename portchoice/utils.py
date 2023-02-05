@@ -5,34 +5,9 @@
 # Import packages
 import numpy as np
 
-# Numeric gradient fuction
-def _numgr(f,param,difftype='forward',eps=np.sqrt(np.finfo(float).eps),*args):    
-    
-    # Define scalars and initialize vectors
-    K = len(param)                          # No. of parameters
-    gr = np.full(K,np.nan)                  # Initialize gradient vector
-    ej = np.eye(K)*eps                      # Vector of eps
-    
-    # If difftype == 'central', then:
-    if difftype == 'central':
-        for k in range(K):
-            gr[k] = (f(param + ej[:,k],*args) - f(param - ej[:,k],*args))*0.5/eps
-
-    # ...else, if difftype == 'forward' (default):
-    elif difftype == 'forward':
-        f0 = f(param,*args)
-        for k in range(K):
-            gr[k] = (f(param + ej[:,k],*args) - f0)/eps
-
-    # ...else, return error
-    else:
-        raise ValueError('''difftype must be either 'forward' or 'central' ''')
-
-    # Return gradient vector
-    return(gr)
-
 # BFGS Minimizer function
 def _bfgsmin(f,x0,maxiter=1000,tol=np.sqrt(np.finfo(float).eps),verbose=False,difftype='central',diffeps=np.sqrt(np.finfo(float).eps),steptol=1e-30,args=()):
+
 
     # Ignore warnings
     import warnings
@@ -129,3 +104,68 @@ def _bfgsmin(f,x0,maxiter=1000,tol=np.sqrt(np.finfo(float).eps),verbose=False,di
 
     # Return convergence flag, iterations, final f value, final x value, and final approx. hessian
     return({'convergence': convergence, 'iterations': iter+1, 'fun': f_val, 'x': x, 'hessian': H})
+
+# Numeric gradient fuction
+def _numgr(f,param,difftype='forward',eps=np.sqrt(np.finfo(float).eps),*args):    
+    
+    # Define scalars and initialize vectors
+    K = len(param)                          # No. of parameters
+    gr = np.full(K,np.nan)                  # Initialize gradient vector
+    ej = np.eye(K)*eps                      # Vector of eps
+    
+    # If difftype == 'central', then:
+    if difftype == 'central':
+        for k in range(K):
+            gr[k] = (f(param + ej[:,k],*args) - f(param - ej[:,k],*args))*0.5/eps
+
+    # ...else, if difftype == 'forward' (default):
+    elif difftype == 'forward':
+        f0 = f(param,*args)
+        for k in range(K):
+            gr[k] = (f(param + ej[:,k],*args) - f0)/eps
+
+    # ...else, return error
+    else:
+        raise ValueError('''difftype must be either 'forward' or 'central' ''')
+
+    # Return gradient vector
+    return(gr)
+
+
+# Numeric Hessian function
+class numhess:
+    
+    def __init__(self,f,eps=np.sqrt(np.finfo(float).eps)):
+        self.f = f
+        self.eps = eps
+    
+    def __call__(self,param,*args):
+        eps = self.eps
+        f = self.f
+
+        # Define scalars and initialize vectors
+        K = len(param)                          # No. of parameters
+        hs = np.full((K,K),np.nan)              # Initialize Hessian vector
+        ej = np.eye(K)*eps                      # Vector of eps
+
+        # f0 = f(param,*args)
+        for i in range(K):
+            for j in range(K):
+                # f1 = f(param + ej[:,i] + ej[:,j],*args)
+                # f2 = f(param + ej[:,i],*args)
+                # f3 = f(param + ej[:,j],*args)
+
+                # hs[i,j] = (f1-f2-f3+f0)/(eps**2)
+                # if i != j:
+                #     hs[i,j] = (f1-f2-f3+f0)/(eps**2)
+                
+                f1 = f(param + ej[:,i] + ej[:,j],*args)
+                f2 = f(param + ej[:,i] - ej[:,j],*args)
+                f3 = f(param - ej[:,i] + ej[:,j],*args)
+                f4 = f(param - ej[:,i] - ej[:,j],*args)
+
+                hs[i,j] = (f1-f2-f3+f4)/(4*eps*eps)
+                if i != j:
+                    hs[j,i] = (f1-f2-f3+f4)/(4*eps*eps)
+    
+        return hs
