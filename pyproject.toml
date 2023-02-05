@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "portchoice"
-version = "0.3"
+version = "0.3.1"
 description = "Modules to design and estimate portfolio choice models"
 authors = ["Jose Ignacio Hernandez <j.i.hernandez@tudelft.nl>"]
 
