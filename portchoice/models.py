@@ -48,11 +48,7 @@ class PortLogit:
         alternatives, by detault None
     """
     # Init function
-<<<<<<< HEAD
-    def __init__(self, Y: pd.DataFrame, X: pd.DataFrame = None, Z: pd.DataFrame = None, C: pd.DataFrame = None, B: float = None, interactions: list = None, base_combinations: np.ndarray = None, mutually_exclusive: list = None):
-=======
-    def __init__(self, Y: pd.DataFrame, X: pd.DataFrame = None, Z: pd.DataFrame = None, C: pd.DataFrame = None, B: float = None, B_init: float = 0, interactions: list = None, mutually_exclusive: list = None):
->>>>>>> create-hessian-function
+    def __init__(self, Y: pd.DataFrame, X: pd.DataFrame = None, Z: pd.DataFrame = None, C: pd.DataFrame = None, B: float = None, B_init: float = 0., interactions: list = None, base_combinations: np.ndarray = None, mutually_exclusive: list = None):
 
         # Array of choices
         self.Y = Y.to_numpy()
@@ -211,11 +207,7 @@ class PortLogit:
             print('Computing Hessian')
 
         if hess:
-<<<<<<< HEAD
-            hessian = Hessian(PortLogit._llf)(self.coef,self.J,self.K,self.M,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,asc,delta_0,beta_j)
-=======
-            hessian = numhess(PortLogit._llf,eps=diffeps)(self.coef,self.J,self.K,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,self.asc,self.delta_0,self.beta_j)
->>>>>>> create-hessian-function
+            hessian = numhess(PortLogit._llf)(self.coef,self.J,self.K,self.M,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,asc,delta_0,beta_j)
             se = np.sqrt(np.diag(np.linalg.inv(hessian))).flatten()
         else:
             hessian = res['hessian']
@@ -372,27 +364,17 @@ class LCPortLogit:
         respondent, by default None
     B : float, optional
         Resource constraint, by default None
-<<<<<<< HEAD
     base_combinations : np.ndarray, optional
         Array with initial set of combinations. Can be used to discard unfeasible 
         combinations upfront. If no list is provided, PortChoice will construct a 
         set of all possible combinations from a full-factorial design.
-=======
-    B_init : float, optional
-        Initial level of consumed resources, 
-        by default 0
->>>>>>> create-hessian-function
     mutually_exclusive : list, optional
         List of mutually-exclusive alternatives. Each element of the list is
         a numpy array of two elements that detail the two mutually-exclusive
         alternatives.
     """
     # Init function
-<<<<<<< HEAD
-    def __init__(self,Y: pd.DataFrame, lc: int, X: pd.DataFrame = None, Z: pd.DataFrame = None, C: pd.DataFrame = None, B: float = None, base_combinations: np.ndarray = None, mutually_exclusive: list = None):
-=======
-    def __init__(self,Y: pd.DataFrame, lc: int, X: pd.DataFrame = None, Z: pd.DataFrame = None, C: pd.DataFrame = None, B: float = None, B_init: float = 0, mutually_exclusive: list = None):
->>>>>>> create-hessian-function
+    def __init__(self,Y: pd.DataFrame, lc: int, X: pd.DataFrame = None, Z: pd.DataFrame = None, C: pd.DataFrame = None, B: float = None, B_init: float = 0., base_combinations: np.ndarray = None, mutually_exclusive: list = None):
 
         # Array of choices
         self.Y = Y.to_numpy()
@@ -547,11 +529,7 @@ class LCPortLogit:
             print('Computing Hessian')
 
         if hess:
-<<<<<<< HEAD
-            hessian = Hessian(LCPortLogit._llf)(self.coef,self.J,self.K,self.M,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,self.asc,self.delta_0,self.beta_j,self.lc)
-=======
-            hessian = numhess(LCPortLogit._llf,eps=diffeps)(self.coef,self.J,self.K,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,self.asc,self.delta_0,self.beta_j,self.lc)
->>>>>>> create-hessian-function
+            hessian = numhess(LCPortLogit._llf)(self.coef,self.J,self.K,self.M,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,self.asc,self.delta_0,self.beta_j,self.lc)
             se = np.sqrt(np.diag(np.linalg.inv(hessian))).flatten()
         else:
             hessian = res['hessian']
@@ -1074,11 +1052,7 @@ def _utility(pars,J,K,M,Y,C,B,X,Z,combinations,interactions,Totalcosts,Feasible,
 
             # Individual-specific parameters
             if Z is not None:
-<<<<<<< HEAD
                 theta = pars[par_count:(par_count+J*M)].reshape((J,M))
-=======
-                theta = pars[par_count:(par_count + J*Z.shape[1])].reshape(((J),Z.shape[1]))
->>>>>>> create-hessian-function
                 Zt = Z @ theta.T
             else:
                 Zt = 0.

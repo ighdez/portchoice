@@ -35,11 +35,7 @@ class PortGen:
         alternatives, by detault None
     """
     # Init function
-<<<<<<< HEAD
     def __init__(self, V: np.ndarray, C: np.ndarray = None, delta_0: float = None, B: float = None, base_combinations: np.ndarray = None, mutually_exclusive: list = None):
-=======
-    def __init__(self, V: np.ndarray, C: np.ndarray = None, delta_0: float = None, B: float = None, B_init: float = 0, mutually_exclusive: list = None):
->>>>>>> create-hessian-function
 
         # Number of individual choices
         J = V.shape[1]
