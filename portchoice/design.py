@@ -7,7 +7,7 @@ import numpy as np
 import time
 import datetime
 import re
-from sklearn.preprocessing import MinMaxScaler
+# from sklearn.preprocessing import MinMaxScaler
 from pandas import get_dummies
 
 # PortDesign class

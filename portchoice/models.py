@@ -288,7 +288,7 @@ class PortLogit:
 
         # Set utility of unfeasible combinations as -inf
         if B is not None:
-            Up[~Feasible] = -np.inf
+            Up[~Feasible.flatten()] = -np.inf
 
         # Sort portfolios and costs by expected utility
         sort_index = np.argsort(Up)[::-1]
@@ -297,7 +297,7 @@ class PortLogit:
 
         # If costs are present, add to the frame and drop unfeasible combinations
         if C is not None:
-            Totalcosts_sorted = Totalcosts[sort_index]
+            Totalcosts_sorted = Totalcosts.flatten()[sort_index]
 
             Totalcosts_sorted[EU_sorted != -np.inf]
             combinations_sorted = combinations_sorted[EU_sorted != -np.inf]
