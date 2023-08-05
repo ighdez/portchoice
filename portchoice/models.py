@@ -7,7 +7,8 @@
 import numpy as np
 import pandas as pd
 from pyDOE2 import fullfact
-from portchoice.utils import _bfgsmin, numhess
+from portchoice.utils import _bfgsmin #, numhess
+from numdifftools import Hessian
 import time
 
 # Portfolio Logit model
@@ -29,7 +30,9 @@ class PortLogit:
     C : pd.DataFrame, optional
         A data frame with the costs of each individual alternative for each 
         respondent, by default None
-    B : float, optional
+    B_min : float, optional
+        Minimum expenditure, by default None
+    B_max : float, optional
         Resource constraint, by default None
     B_init : float, optional
         Initial level of consumed resources, 
@@ -48,7 +51,7 @@ class PortLogit:
         alternatives, by detault None
     """
     # Init function
-    def __init__(self, Y: pd.DataFrame, X: pd.DataFrame = None, Z: pd.DataFrame = None, C: pd.DataFrame = None, B: float = None, B_init: float = 0., interactions: list = None, base_combinations: np.ndarray = None, mutually_exclusive: list = None):
+    def __init__(self, Y: pd.DataFrame, X: pd.DataFrame = None, Z: pd.DataFrame = None, C: pd.DataFrame = None, B_min: float = None, B_max: float = None, B_init: float = 0., interactions: list = None, base_combinations: np.ndarray = None, mutually_exclusive: list = None):
 
         # Array of choices
         self.Y = Y.to_numpy()
@@ -103,27 +106,41 @@ class PortLogit:
 
         # Define array or budget scalar and feasible combinations (if present)
         self.B_init = B_init
-        if B is not None:
-            if isinstance(B,float):
-                self.B = B
+
+        if B_min is not None:
+            if isinstance(B_min,float):
+                self.B_min = B_min
             else:
-                self.B = B.to_numpy()
+                self.B_min = B_min.to_numpy()
         else:
-            self.B = B
+            self.B_min = B_min
+
+
+        if B_max is not None:
+            if isinstance(B_max,float):
+                self.B_max = B_max
+            else:
+                self.B_max = B_max.to_numpy()
+        else:
+            self.B_max = B_max
 
         # Define arrays of costs and totalcosts (if present)
         if C is not None:
             self.C = C.to_numpy()
             self.Totalcosts = self.C @ self.combinations.T
-            
-            if B is not None:
-                self.Feasible = (self.B_init + self.Totalcosts.T <= self.B).T
-            else:
-                self.Feasible = np.ones(self.Totalcosts.shape)
+
+            self.Feasible = np.ones(self.Totalcosts.shape).astype(bool)
+
+            if B_min is not None:
+                self.Feasible[(self.B_init + self.Totalcosts.T <= self.B_min).T] = False
+
+            if B_max is not None:
+                self.Feasible[(self.B_init + self.Totalcosts.T >= self.B_max).T] = False
+
         else:
             self.C = 0
             self.Totalcosts = 0.
-            self.Feasible = np.ones(self.combinations.shape)  
+            self.Feasible = np.ones((self.N,self.combinations.shape[0])).astype(bool)
 
     # Estimate portfolio logit model
     def estimate(self, startv: np.ndarray, asc: np.ndarray, beta_j: np.ndarray = None, delta_0: float = None, hess: bool = True, tol: float = 1e-6, diffeps: float = (np.finfo(float).eps)**(1/3), verbose: bool = True):
@@ -192,7 +209,7 @@ class PortLogit:
         self.delta_0 = delta_0
 
         # Set arguments for the estimation routine
-        args = (self.J,self.K,self.M,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,self.asc,self.delta_0,self.beta_j)
+        args = (self.J,self.K,self.M,self.Y,self.C,self.B_min,self.B_max,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,self.asc,self.delta_0,self.beta_j)
             
         # Minimise the LL function
         time0 = time.time()
@@ -207,7 +224,7 @@ class PortLogit:
             print('Computing Hessian')
 
         if hess:
-            hessian = numhess(PortLogit._llf)(self.coef,self.J,self.K,self.M,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,asc,delta_0,beta_j)
+            hessian = Hessian(PortLogit._llf)(self.coef,self.J,self.K,self.M,self.Y,self.C,self.B_min,self.B_max,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,asc,delta_0,beta_j)
             se = np.sqrt(np.diag(np.linalg.inv(hessian))).flatten()
         else:
             hessian = res['hessian']
@@ -220,7 +237,7 @@ class PortLogit:
         return ll, self.coef, se, hessian, diff_time
 
     # Optimal portfolio
-    def optimal_portfolio(self,X: pd.Series = None, Z: pd.DataFrame = None, C: pd.Series = None, B: float = None, B_init: float = 0, sims: int = 1000):
+    def optimal_portfolio(self,X: pd.Series = None, Z: pd.DataFrame = None, C: pd.Series = None, B_min: float = None, B_max: float = None, B_init: float = 0, sims: int = 1000):
         """Compute the optimal portfolio
 
         Computes the optimal portfolio based on the estimation results 
@@ -238,7 +255,9 @@ class PortLogit:
             Data frame with individual-specific variables, by default None
         C : pd.Series, optional
             Series with individual costs per alternative, by default None
-        B : float, optional
+        B_min : float, optional
+            Minimum expenditure, by default None
+        B_max : float, optional
             Resource constraint, by default None
         B_init : float, optional
             Initial level of consumed resources, 
@@ -265,27 +284,32 @@ class PortLogit:
         # Define arrays of costs and totalcosts (if present)
         if C is not None:
             Totalcosts = (self.combinations * C.to_numpy()).sum(axis=1)[np.newaxis,:]
-            if B is not None:
-                Feasible = B_init + Totalcosts <= B
-            else:
-                Feasible = np.ones((1,self.combinations.shape[0])).astype(bool)
+
+            Feasible = np.ones(Totalcosts.shape).astype(bool)
+
+            if B_min is not None:
+                Feasible[B_init + Totalcosts <= B_min] = False
+
+            if B_max is not None:
+                Feasible[B_init + Totalcosts >= B_max] = False
+
         else:
             Totalcosts = 0.
-            Feasible = np.ones((1,self.combinations.shape[0]))
+            Feasible = np.ones((1,self.combinations.shape[0])).astype(bool)
 
         # Create random Gumbel draws
         e = np.random.gumbel(size=(sims,self.combinations.shape[0]))
 
         # Get utility of each portfolio
-        Vp = _utility(self.coef,self.J,self.K,self.M,None,C,B,X,Z,self.combinations,self.interactions,Totalcosts,Feasible,self.asc,self.delta_0,self.beta_j,return_chosen=False)
+        Vp = _utility(self.coef,self.J,self.K,self.M,None,C,B_min,B_max,X,Z,self.combinations,self.interactions,Totalcosts,Feasible,self.asc,self.delta_0,self.beta_j,return_chosen=False)
 
         # Compute utility for each simulation and average
         Up_s = Vp + e
         Up = Up_s.mean(axis=0)
 
         # Set utility of unfeasible combinations as -inf
-        if B is not None:
-            Up[~Feasible.flatten()] = -np.inf
+        # if B is not None:
+        #     Up[~Feasible.flatten()] = -np.inf
 
         # Sort portfolios and costs by expected utility
         sort_index = np.argsort(Up)[::-1]
@@ -313,15 +337,15 @@ class PortLogit:
 
     # Finite-difference Hessian
     def hessian(self, eps: float = (np.finfo(float).eps)**(1/3)):
-        hess = numhess(PortLogit._llf,eps=eps)(self.coef,self.J,self.K,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,self.asc,self.delta_0,self.beta_j)
+        hess = Hessian(PortLogit._llf,eps=eps)(self.coef,self.J,self.K,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,self.asc,self.delta_0,self.beta_j)
         return hess
 
     # Portfolio choice model log-likelihood function
     @staticmethod
-    def _llf(pars,J,K,M,Y,C,B,X,Z,combinations,interactions,Totalcosts,Feasible,asc,delta_0,beta_j):
+    def _llf(pars,J,K,M,Y,C,B_min,B_max,X,Z,combinations,interactions,Totalcosts,Feasible,asc,delta_0,beta_j):
                 
         # Get utility functions of chosen alternatives and of portfolios
-        Vp, Vp_chosen = _utility(pars,J,K,M,Y,C,B,X,Z,combinations,interactions,Totalcosts,Feasible,asc,delta_0,beta_j, return_chosen = True)
+        Vp, Vp_chosen = _utility(pars,J,K,M,Y,C,B_min,B_max,X,Z,combinations,interactions,Totalcosts,Feasible,asc,delta_0,beta_j, return_chosen = True)
 
         # Clip to avoid numerical overflow
         Vp[Vp>700] = 700
@@ -529,7 +553,7 @@ class LCPortLogit:
             print('Computing Hessian')
 
         if hess:
-            hessian = numhess(LCPortLogit._llf)(self.coef,self.J,self.K,self.M,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,self.asc,self.delta_0,self.beta_j,self.lc)
+            hessian = Hessian(LCPortLogit._llf)(self.coef,self.J,self.K,self.M,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,self.asc,self.delta_0,self.beta_j,self.lc)
             se = np.sqrt(np.diag(np.linalg.inv(hessian))).flatten()
         else:
             hessian = res['hessian']
@@ -635,7 +659,7 @@ class LCPortLogit:
 
     # Finite-difference Hessian
     def hessian(self, eps: float = (np.finfo(float).eps)**(1/3)):
-        hess = numhess(LCPortLogit._llf,eps=eps)(self.coef,self.J,self.K,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,self.asc,self.delta_0,self.beta_j,self.lc)
+        hess = Hessian(LCPortLogit._llf,eps=eps)(self.coef,self.J,self.K,self.Y,self.C,self.B,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,self.asc,self.delta_0,self.beta_j,self.lc)
         return hess
 
     # Log-likelihood function
@@ -845,7 +869,7 @@ class PortKT:
             print('Computing Hessian')
 
         if hess:
-            hessian = numhess(PortKT._llf,eps=diffeps)(self.coef,self.N,self.J,self.K,self.Y,self.log_Price,self.Remaining,self.N_nonchosen,self.Case1,self.Case2,self.X,self.Z,self.asc,self.beta_j,self.delta_0,self.sigma,self.alpha_0,self.gamma_0)
+            hessian = Hessian(PortKT._llf,eps=diffeps)(self.coef,self.N,self.J,self.K,self.Y,self.log_Price,self.Remaining,self.N_nonchosen,self.Case1,self.Case2,self.X,self.Z,self.asc,self.beta_j,self.delta_0,self.sigma,self.alpha_0,self.gamma_0)
             se = np.sqrt(np.diag(np.linalg.inv(hessian))).flatten()
         else:
             hessian = res['hessian']
@@ -859,7 +883,7 @@ class PortKT:
 
     # Finite-difference Hessian
     def hessian(self, eps: float = (np.finfo(float).eps)**(1/3)):
-        hess = numhess(PortKT._llf,eps=eps)(self.coef,self.N,self.J,self.K,self.Y,self.log_Price,self.Remaining,self.N_nonchosen,self.Case1,self.Case2,self.X,self.Z,self.asc,self.beta_j,self.delta_0,self.sigma,self.alpha_0,self.gamma_0)
+        hess = Hessian(PortKT._llf,eps=eps)(self.coef,self.N,self.J,self.K,self.Y,self.log_Price,self.Remaining,self.N_nonchosen,self.Case1,self.Case2,self.X,self.Z,self.asc,self.beta_j,self.delta_0,self.sigma,self.alpha_0,self.gamma_0)
         return hess
 
     def optimal_portfolio(self):
@@ -1016,7 +1040,7 @@ class PortKT:
         return -sum(ll_n)
 
 # Utility functions method
-def _utility(pars,J,K,M,Y,C,B,X,Z,combinations,interactions,Totalcosts,Feasible,asc,delta_0,beta_j,return_chosen=True):
+def _utility(pars,J,K,M,Y,C,B_min,B_max,X,Z,combinations,interactions,Totalcosts,Feasible,asc,delta_0,beta_j,return_chosen=True):
 
             # Separate parameters of pars
             par_count = 0
@@ -1081,16 +1105,22 @@ def _utility(pars,J,K,M,Y,C,B,X,Z,combinations,interactions,Totalcosts,Feasible,
                         syn = ' & '.join(['(Y[:,' + str(ss) + ']==1)' for ss in interactions[s]])
                         Vp_chosen = Vp_chosen + eval(syn)*delta_ij[s]
 
-            if B is not None:
-                Vp += delta_0*(B-Totalcosts.T).T
-                Vp[~Feasible] = -np.inf
-                if return_chosen:
-                    Vp_chosen += delta_0*(B-np.sum(C*Y,axis=1))
-            else:
-                Vp -= delta_0*Totalcosts
-                if return_chosen:
-                    Vp_chosen -= delta_0*np.sum(C*Y,axis=1)
-        
+            # if B_max is not None:
+            #     Vp += delta_0*(B_max-Totalcosts.T).T
+            #     Vp[~Feasible] = -np.inf
+            #     if return_chosen:
+            #         Vp_chosen += delta_0*(B-np.sum(C*Y,axis=1))
+            # else:
+                # Vp -= delta_0*Totalcosts
+                # if return_chosen:
+                #     Vp_chosen -= delta_0*np.sum(C*Y,axis=1)
+
+            Vp += delta_0*Totalcosts
+            Vp[~Feasible] = -np.inf
+
+            if return_chosen:
+                Vp_chosen += delta_0*np.sum(C*Y,axis=1)
+
             # Return utility functions
             if return_chosen:
                 return Vp, Vp_chosen
