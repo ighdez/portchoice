@@ -1089,6 +1089,10 @@ def _utility(pars,J,K,M,Y,C,B_min,B_max,X,Z,combinations,interactions,Totalcosts
             # Construct individual utility functions
             Vj = delta_j + Xb + Zt
 
+            # If dimension of Vp is 1, then add new axis
+            if Vj.ndim == 1:
+                Vj = Vj[np.newaxis,:]
+
             # Construct utility functions of the portfolios
             Vp = Vj @ combinations.T
 
