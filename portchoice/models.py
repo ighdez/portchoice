@@ -237,7 +237,7 @@ class PortLogit:
         return ll, self.coef, se, hessian, diff_time
 
     # Optimal portfolio
-    def optimal_portfolio(self,X: pd.Series = None, Z: pd.DataFrame = None, C: pd.Series = None, B_min: float = None, B_max: float = None, B_init: float = 0, sims: int = 1000):
+    def optimal_portfolio(self,X: pd.Series = None, Z: pd.DataFrame = None, C: pd.Series = None, B_min: float = None, B_max: float = None, B_init: float = 0, sims: int = 1000, column_names: list = None):
         """Compute the optimal portfolio
 
         Computes the optimal portfolio based on the estimation results 
@@ -264,6 +264,10 @@ class PortLogit:
             by default 0
         sims : int, optional
             Number of Extreme Value random draws, by default 1000
+        column_names : list, optional
+            List of column names for the optimal portfolio. If no list is 
+            provided, then a generic list of column names will be 
+            generated, by default None
 
         Returns
         -------
@@ -324,14 +328,18 @@ class PortLogit:
             combinations_sorted = combinations_sorted[EU_sorted != -np.inf]
             EU_sorted = EU_sorted[EU_sorted != -np.inf]
 
-        # Construct dataframe with expected utility
-        portfolio_columns = ['Alt_' + str(i+1) for i in range(self.J)]
-        portfolio = pd.concat([ pd.DataFrame(combinations_sorted,columns=portfolio_columns),
-                                pd.Series(EU_sorted,name='EU')],axis=1)
-        
-        if C is not None:
-            portfolio = pd.concat([portfolio,pd.Series(Totalcosts_sorted,name='Totalcosts')],axis=1)
+        # Construct dataframe for output
+        if column_names is not None:
+            column_names = ['Alt_' + str(i+1) for i in range(self.J)]
 
+        portfolio = np.c_[combinations_sorted,EU_sorted]
+
+        if C is not None:
+            portfolio = np.c_[portfolio,Totalcosts_sorted]
+            portfolio = pd.DataFrame(portfolio,columns = column_names + ['EU','Costs'])
+        else: 
+            portfolio = pd.DataFrame(portfolio,columns = column_names + ['EU'])
+            
         # Return pandas dataframe
         return portfolio
 
@@ -1089,9 +1097,9 @@ def _utility(pars,J,K,M,Y,C,B_min,B_max,X,Z,combinations,interactions,Totalcosts
             # Construct individual utility functions
             Vj = delta_j + Xb + Zt
 
-            # If dimension of Vp is 1, then add new axis
+            # If dimension of Vp is 1, then project along 
             if Vj.ndim == 1:
-                Vj = Vj[np.newaxis,:]
+                Vj = np.tile(Vj,(Feasible.shape[0],1))
 
             # Construct utility functions of the portfolios
             Vp = Vj @ combinations.T
