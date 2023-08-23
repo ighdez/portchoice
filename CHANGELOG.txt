@@ -1,3 +1,6 @@
+0.4
+Incorporating 'common ASCs'
+
 0.3.5
 Bug fix in optimal portfolio
 

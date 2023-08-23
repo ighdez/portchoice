@@ -143,7 +143,7 @@ class PortLogit:
             self.Feasible = np.ones((self.N,self.combinations.shape[0])).astype(bool)
 
     # Estimate portfolio logit model
-    def estimate(self, startv: np.ndarray, asc: np.ndarray, beta_j: np.ndarray = None, delta_0: float = None, hess: bool = True, tol: float = 1e-6, diffeps: float = (np.finfo(float).eps)**(1/3), verbose: bool = True):
+    def estimate(self, startv: np.ndarray, asc: np.ndarray, common_asc: list = None, beta_j: np.ndarray = None, delta_0: float = None, hess: bool = True, tol: float = 1e-6, diffeps: float = (np.finfo(float).eps)**(1/3), verbose: bool = True):
         """Estimate portfolio logit model
 
         It starts the optimisation routine of the portfolio logit model. 
@@ -160,6 +160,9 @@ class PortLogit:
             An array of length `n_alternatives`, in which each element can
             be either equal to one if the ASC of the corresponding alternative 
             is estimated, and zero otherwise.
+        common_asc: list
+            List of lists that indicate the alternatives with common ASCs, 
+            by detault None
         beta_j : np.ndarray, optional
             An array of dimension `n_alternatives*n_attributes`, in which each 
             element can be either equal to one if the corresponding 
@@ -205,11 +208,12 @@ class PortLogit:
         """
         # Retrieve parameter specifications and store in object
         self.asc = asc
+        self.common_asc = common_asc
         self.beta_j = beta_j
         self.delta_0 = delta_0
 
         # Set arguments for the estimation routine
-        args = (self.J,self.K,self.M,self.Y,self.C,self.B_min,self.B_max,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,self.asc,self.delta_0,self.beta_j)
+        args = (self.J,self.K,self.M,self.Y,self.C,self.B_min,self.B_max,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,self.asc,self.common_asc,self.delta_0,self.beta_j)
             
         # Minimise the LL function
         time0 = time.time()
@@ -224,7 +228,7 @@ class PortLogit:
             print('Computing Hessian')
 
         if hess:
-            hessian = Hessian(PortLogit._llf)(self.coef,self.J,self.K,self.M,self.Y,self.C,self.B_min,self.B_max,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,asc,delta_0,beta_j)
+            hessian = Hessian(PortLogit._llf)(self.coef,self.J,self.K,self.M,self.Y,self.C,self.B_min,self.B_max,self.X,self.Z,self.combinations,self.interactions,self.Totalcosts,self.Feasible,self.asc,self.common_asc,self.delta_0,self.beta_j)
             se = np.sqrt(np.diag(np.linalg.inv(hessian))).flatten()
         else:
             hessian = res['hessian']
@@ -305,7 +309,7 @@ class PortLogit:
         e = np.random.gumbel(size=(sims,self.combinations.shape[0]))
 
         # Get utility of each portfolio
-        Vp = _utility(self.coef,self.J,self.K,self.M,None,C,B_min,B_max,X,Z,self.combinations,self.interactions,Totalcosts,Feasible,self.asc,self.delta_0,self.beta_j,return_chosen=False)
+        Vp = _utility(self.coef,self.J,self.K,self.M,None,C,B_min,B_max,X,Z,self.combinations,self.interactions,Totalcosts,Feasible,self.asc,self.common_asc,self.delta_0,self.beta_j,return_chosen=False)
 
         # Compute utility for each simulation and average
         Up_s = Vp + e
@@ -324,12 +328,12 @@ class PortLogit:
         if C is not None:
             Totalcosts_sorted = Totalcosts.flatten()[sort_index]
 
-            Totalcosts_sorted[EU_sorted != -np.inf]
+            Totalcosts_sorted = Totalcosts_sorted[EU_sorted != -np.inf]
             combinations_sorted = combinations_sorted[EU_sorted != -np.inf]
             EU_sorted = EU_sorted[EU_sorted != -np.inf]
 
         # Construct dataframe for output
-        if column_names is not None:
+        if column_names is None:
             column_names = ['Alt_' + str(i+1) for i in range(self.J)]
 
         portfolio = np.c_[combinations_sorted,EU_sorted]
