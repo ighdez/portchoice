@@ -354,10 +354,10 @@ class PortLogit:
 
     # Portfolio choice model log-likelihood function
     @staticmethod
-    def _llf(pars,J,K,M,Y,C,B_min,B_max,X,Z,combinations,interactions,Totalcosts,Feasible,asc,delta_0,beta_j):
+    def _llf(pars,J,K,M,Y,C,B_min,B_max,X,Z,combinations,interactions,Totalcosts,Feasible,asc,common_asc,delta_0,beta_j):
                 
         # Get utility functions of chosen alternatives and of portfolios
-        Vp, Vp_chosen = _utility(pars,J,K,M,Y,C,B_min,B_max,X,Z,combinations,interactions,Totalcosts,Feasible,asc,delta_0,beta_j, return_chosen = True)
+        Vp, Vp_chosen = _utility(pars,J,K,M,Y,C,B_min,B_max,X,Z,combinations,interactions,Totalcosts,Feasible,asc,common_asc,delta_0,beta_j, return_chosen = True)
 
         # Clip to avoid numerical overflow
         Vp[Vp>700] = 700
@@ -1052,7 +1052,7 @@ class PortKT:
         return -sum(ll_n)
 
 # Utility functions method
-def _utility(pars,J,K,M,Y,C,B_min,B_max,X,Z,combinations,interactions,Totalcosts,Feasible,asc,delta_0,beta_j,return_chosen=True):
+def _utility(pars,J,K,M,Y,C,B_min,B_max,X,Z,combinations,interactions,Totalcosts,Feasible,asc,common_asc,delta_0,beta_j,return_chosen=True):
 
             # Separate parameters of pars
             par_count = 0
@@ -1063,6 +1063,12 @@ def _utility(pars,J,K,M,Y,C,B_min,B_max,X,Z,combinations,interactions,Totalcosts
                 if asc[j] == 1:
                     delta_j[j] = pars[par_count]
                     par_count += 1
+
+            # Common ASCs
+            if common_asc is not None:
+                for i in common_asc:
+                    delta_j[i] = pars[par_count]
+                    par_count +=1
 
             # Alternative-interaction parameters
             if interactions is not None:
